@@ -1,0 +1,365 @@
+---
+title: "General analysis"
+author: "Suparna Chaudhry and Andrew Heiss"
+date: "`r format(Sys.time(), '%F')`"
+output: 
+  html_document:
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(kableExtra)
+knit_print.data.frame <- function(x, ...) {
+  res <- paste(c('', '', kable_styling(kable(x, booktabs = TRUE))), collapse = '\n')
+  asis_output(res)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+registerS3method("knit_print", "grouped_df", knit_print.data.frame)
+
+knitr::opts_chunk$set(fig.retina = 3,
+                      tidy.opts = list(width.cutoff = 120),  # For code
+                      options(width = 90),  # For output
+                      fig.asp = 0.618, fig.width = 7, 
+                      fig.align = "center", out.width = "85%")
+
+options(dplyr.summarise.inform = FALSE,
+        knitr.kable.NA = "")
+```
+
+```{r load-libraries-data, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(scales)
+library(ggbeeswarm)
+library(patchwork)
+library(here)
+
+source(here("lib", "graphics.R"))
+
+# Generated via random.org
+set.seed(9951)
+
+matrix_from_vector <- function(x, ncol) {
+  n_balanced <- ceiling(length(x) / ncol) * ncol
+  matrix(c(x, rep(NA, n_balanced - length(x))), ncol = ncol)
+}
+
+pandem_clean <- readRDS(here("data", "derived_data", "pandem_clean.rds"))
+pandem_single <- readRDS(here("data", "derived_data", "pandem_single.rds"))
+derogations_clean <- readRDS(here("data", "derived_data", "derogations_clean.rds"))
+vdem_clean <- readRDS(here("data", "derived_data", "vdem_clean.rds"))
+pandem_derog <- readRDS(here("data", "derived_data", "pandem_derog.rds"))
+```
+
+# V-Dem pandemic emergency declarations
+
+A majority of countries made some sort of official public health response to the pandemic, and most used legal avenues for their responses: 80% of countries used legal instruments to declare public emergencies at some point during 2020, while 16% used extralegal avenues. Only a handful had no official national emergency response throughout 2020: Canada, China, Germany, Nicaragua, and North Korea.
+
+```{r emergency-law-declarations}
+pandem_single %>% 
+  count(emlaw_cond_min) %>% 
+  mutate(prop = n / sum(n))
+
+pandem_single %>% 
+  count(emlaw_fct_min) %>% 
+  mutate(prop = n / sum(n))
+
+pandem_single %>% 
+  filter(emlaw_cond_min == "No emergency response") %>% 
+  select(country_name, emlaw_cond)
+```
+
+There are distinct patterns that help determine which kind of response a country made. There is a uniform distribution of adherence to democratic values within countries that used legal methods for declaring emergencies. For instance, both Denmark and Tajikistan used legal instruments to declare their respective emergencies. However, among countries that declared emergencies without any legal instruments, there are no countries that score above 0.5 on V-Dem's liberal democracy index.
+
+This is also true when looking at regime type specifically. Only one democracy—Sri Lanka—declared an emergency extralegally.
+
+```{r democracy-declaration}
+pandem_single %>% 
+  group_by(emlaw_cond_min) %>% 
+  arrange(v2x_libdem) %>% 
+  slice(c(1, 2, n() - 1, n())) %>% 
+  select(country_name, emlaw_cond_min, v2x_libdem)
+
+pandem_single %>% 
+  ggplot(aes(y = fct_rev(emlaw_cond_min), x = v2x_libdem, color = emlaw_cond_min)) +
+  geom_quasirandom(groupOnX = FALSE, width = 0.1) +
+  guides(color = FALSE) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  coord_cartesian(xlim = c(0, 1)) +
+  labs(x = "V-Dem liberal democracy index", y = NULL,
+       caption = "Lower values indicate less democracy") +
+  theme_pandem() +
+  theme(panel.grid.major.y = element_blank())
+```
+
+```{r regime-declaration}
+pandem_single %>% 
+  group_by(emlaw_cond_min, regime) %>% 
+  summarize(n = n())
+
+pandem_single %>% 
+  filter(emlaw_cond_min == "Emergency response without legal instruments",
+         regime == "Electoral democracy") %>% 
+  select(country_name)
+
+pandem_single %>% 
+  ggplot(aes(x = regime, y = fct_rev(emlaw_cond_min), color = emlaw_cond_min)) +
+  geom_point(position = position_jitter(width = 0.1, height = 0.1)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  guides(color = FALSE) +
+  labs(x = "V-Dem Regimes of the World index", y = NULL) +
+  theme_pandem() +
+  theme(panel.grid.major.y = element_blank())
+```
+
+# Formal ICCPR derogations
+
+Many pandemic-level public health measures necessarily entail imposing limitations on personal rights and freedoms. To curtail the spread of the virus, countries imposed lockdowns and enacted restrictions on movement and association. While countries are ostensibly free to make these decisions within their own borders, many countries are also bound to follow international agreements like the ICCPR. Signatories to the ICCPR have the ability to formally derogate their agreements on a temporary basis, but not all countries did this in 2020. 
+
+V-Dem doesn't keep track of actual formal derogations, so we collected this data by hand.
+
+```{r derogations-summary}
+derog_count <- derogations_clean %>% 
+  filter(ratified == 1) %>% 
+  count(derogate)
+derog_count
+```
+
+Of the `r sum(derog_count$n)` countries that have ratified the ICCPR, `r filter(derog_count, derogate == 1)$n` submitted formal derogations.
+
+## Typology of derogation
+
+```{r}
+pandem_derog %>% 
+  count(derogate, nonproportional)
+
+pandem_derog %>% 
+  count(type_clean)
+```
+
+**A: Derogated as intended**
+
+Here are the countries that derogated, provided an end date, and used proportional or necessary measures:
+
+```{r}
+pandem_derog %>% 
+  filter(type == "A") %>% 
+  select(country_name, derogation_start, derogation_end)
+```
+
+**B: Officially derogated but measures not temporary/proportional/necessary**
+
+Here are the countries that derogated and did not provide an end date or use proportional measures:
+
+```{r}
+pandem_derog %>% 
+  filter(type == "B") %>% 
+  select(country_name, derogation_start, derogation_end, nonproportional)
+```
+
+**C: Emergency declared but no formal derogation**
+
+Here are the ICCPR signatory countries that declared an emergency but did not formally derogate:
+
+```{r}
+pandem_derog %>% 
+  filter(type == "C") %>% 
+  arrange(country_name) %>% 
+  pull(country_name) %>% 
+  matrix_from_vector(ncol = 4) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+**D: No emergency, no formal derogation**
+
+And here are the ICCPR signatory countries that had no formal legal emergency and did not derogate:
+
+```{r}
+pandem_derog %>% 
+  filter(type == "D") %>% 
+  arrange(country_name) %>% 
+  pull(country_name) %>% 
+  matrix_from_vector(ncol = 4) %>% 
+  kbl() %>% 
+  kable_styling()
+```
+
+
+# Human rights violations and democratic backsliding
+
+An overarching fear as countries declared emergency pandemic measures is that these measures would serve as an excuse to violate human rights, limit the space for civil society, and lead to democratic backsliding.
+
+The variety of pandemic-justified human rights violations differs by countries' formal responses. Those that implemented emergency measures without a formal legal process were more likely to violate non-derogable rights and engage in discriminatory measures. Surprisingly, those that used legal instruments were more likely to enforce these measures harshly, potentially because there was a formal process backing up the measures—there are legislative teeth, so to speak.
+
+```{r violation-plots, fig.width=6, fig.height=9, fig.asp=NULL}
+violation_summary <- pandem_derog %>% 
+  group_by(emlaw_cond_min) %>% 
+  summarize(across(c(discrim, ndrights, pomviol),
+                   ~mean(.)))
+
+plot_violation_ndrights <- violation_summary %>% 
+  pivot_longer(-emlaw_cond_min) %>% 
+  filter(name == "ndrights") %>% 
+  ggplot(aes(x = value, y = fct_rev(emlaw_cond_min), color = emlaw_cond_min)) +
+  geom_pointrange(aes(xmin = 0, xmax = value)) +
+  guides(color = FALSE) +
+  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  labs(x = "Proportion violating non-derogable rights", y = NULL,
+       title = "Violations of nonderogable rights") +
+  theme_pandem() +
+  theme(panel.grid.major.y = element_blank())
+
+plot_violation_discrim <- violation_summary %>% 
+  pivot_longer(-emlaw_cond_min) %>% 
+  filter(name == "discrim") %>% 
+  ggplot(aes(x = value, y = fct_rev(emlaw_cond_min), color = emlaw_cond_min)) +
+  geom_pointrange(aes(xmin = 0, xmax = value)) +
+  guides(color = FALSE) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  labs(x = "Average discriminatory measures", y = NULL,
+       caption = "Original scale ranges from 0–3",
+       title = "Discriminatory measures") +
+  theme_pandem() +
+  theme(panel.grid.major.y = element_blank())
+
+plot_violation_pomviol <- violation_summary %>% 
+  pivot_longer(-emlaw_cond_min) %>% 
+  filter(name == "pomviol") %>% 
+  ggplot(aes(x = value, y = fct_rev(emlaw_cond_min), color = emlaw_cond_min)) +
+  geom_pointrange(aes(xmin = 0, xmax = value)) +
+  guides(color = FALSE) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  labs(x = "Average abusive enforcement", y = NULL,
+       caption = "Original scale ranges from 0–3",
+       title = "Abusive enforcement") +
+  theme_pandem() +
+  theme(panel.grid.major.y = element_blank())
+
+plot_violation_discrim / plot_violation_ndrights / plot_violation_pomviol
+```
+
+The level of civil society openness varies substantially across these four types of derogations. Countries that formally derogated have far more open civil society than those that did not derogate. However, civil society openness isn't necessarily a strong predictor of whether emergency measures are temporary or proportional. The 5 derogating countries that ended up abusing their privileges have relatively unrestricted and freely regulated civil societies. 
+
+Countries that did not official derogate have more restricted space for civil society, and countries that did not issue a formal legal emergency and did not formally derogate tend to have an even lower average civil society index. Not surprisingly, countries that have not ratified the ICCPR have highly restricted civil societies.
+
+```{r cssi-derogation}
+pandem_derog %>% 
+  ggplot(aes(x = v2xcs_ccsi, y = fct_rev(type_clean_letter), color = type_clean_letter)) +
+  stat_summary(aes(fill = type_clean_letter), geom = "point", fun = "mean", 
+               size = 4, pch = 23, color = "white", alpha = 0.4, 
+               position = position_nudge(x = 0, y = -0.2)) +
+  geom_quasirandom(groupOnX = FALSE, width = 0.1) +
+  guides(color = FALSE, fill = FALSE) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  scale_fill_viridis_d(option = "plasma", end = 0.8) +
+  coord_cartesian(xlim = c(0, 1)) +
+  labs(x = "Average V-Dem core civil society index", y = NULL,
+       caption = "Diamonds show mean value; lower values indicate more limited civil society") +
+  theme_pandem() +
+  theme(panel.grid.major.y = element_blank())
+```
+
+
+```{r message=FALSE}
+pandem_derog %>% 
+  ggplot(aes(x = v2xcs_ccsi, y = pandem)) +
+  geom_point(aes(color = type_clean_letter)) +
+  geom_smooth(method = "lm") +
+  scale_color_viridis_d(option = "plasma", end = 0.95) +
+  guides(color = guide_legend(ncol = 2)) +
+  coord_cartesian(xlim = c(0, 1)) +
+  labs(x = "V-Dem core civil society index", y = "Pandemic violations index", color = NULL) +
+  theme_pandem()
+```
+
+```{r message=FALSE}
+pandem_derog %>% 
+  ggplot(aes(x = v2xcs_ccsi, y = panback)) +
+  geom_point(aes(color = type_clean_letter)) +
+  geom_smooth(method = "gam") +
+  scale_color_viridis_d(option = "plasma", end = 0.95) +
+  guides(color = guide_legend(ncol = 2)) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 0.5)) +
+  labs(x = "V-Dem core civil society index", y = "Pandemic backsliding index", color = NULL) +
+  theme_pandem()
+```
+
+```{r message=FALSE}
+pandem_derog %>% 
+  ggplot(aes(x = v2x_libdem, y = pandem)) +
+  geom_point(aes(color = type_clean_letter)) +
+  geom_smooth(method = "lm") +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  guides(color = guide_legend(ncol = 2)) +
+  labs(x = "V-Dem liberal democracy index", y = "Pandemic violations index", color = NULL) +
+  theme_pandem()
+```
+
+```{r message=FALSE}
+pandem_derog %>% 
+  ggplot(aes(x = v2x_libdem, y = panback)) +
+  geom_point(aes(color = type_clean_letter)) +
+  geom_smooth(method = "gam") +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  guides(color = guide_legend(ncol = 2)) +
+  coord_cartesian(ylim = c(0, 0.5)) +
+  labs(x = "V-Dem liberal democracy index", y = "Pandemic backsliding index", color = NULL) +
+  theme_pandem()
+```
+
+
+```{r eval=FALSE, include=FALSE}
+pandem_summary <- pandem_single %>%
+  group_by(emlaw_cond_min) %>% 
+  summarize(across(c(v2x_libdem, v2x_regime, pandem, panback, ndrights),
+                   ~ tibble(n = length(.),
+                            mean = mean(.),
+                            se = sd(.) / sqrt(n),
+                            upper = mean + (qnorm(0.975) * se),
+                            lower = mean + (qnorm(0.025) * se)))) %>% 
+  pivot_longer(c(v2x_libdem, v2x_regime, pandem, panback, ndrights)) %>% 
+  unpack(value)
+
+pandem_summary %>% 
+  filter(name == "ndrights") %>% 
+  ggplot(aes(x = mean, y = fct_rev(emlaw_cond_min), color = emlaw_cond_min)) +
+  geom_pointrange(aes(xmin = 0, xmax = mean)) +
+  guides(color = FALSE) +
+  scale_x_continuous(labels = percent_format(accuracy = 1)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  labs(x = "Proportion violating non-derogable rights", y = NULL) +
+  theme_pandem() +
+  theme(panel.grid.major.y = element_blank())
+
+
+pandem_single %>% 
+  ggplot(aes(x = as.factor(ndrights), y = emlaw_cond_min, color = emlaw_cond_min)) +
+  geom_point(position = position_jitter(width = 0.1, height = 0.2)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  # scale_x_continuous(breaks = c(0, 1)) +
+  labs(x = "Proportion violating non-derogable rights", y = NULL) +
+  theme_pandem() +
+  theme(panel.grid.major.y = element_blank())
+
+pandem_single %>% 
+  ggplot(aes(x = v2x_libdem, y = pandem)) +
+  geom_point(aes(color = emlaw_cond_min)) +
+  geom_smooth(method = "lm") +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  labs(x = "V-Dem liberal democracy index", y = "Pandemic violations index", color = NULL) +
+  theme_pandem() +
+  theme(panel.grid.major.y = element_blank())
+```
+
