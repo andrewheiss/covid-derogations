@@ -1,0 +1,193 @@
+---
+title: "Process and merge data"
+author: "Suparna Chaudhry and Andrew Heiss"
+date: "Last run: `r format(Sys.time(), '%F')`"
+output: 
+  html_document:
+    code_folding: show
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(kableExtra)
+knit_print.data.frame <- function(x, ...) {
+  res <- paste(c('', '', kable_styling(kable(x, booktabs = TRUE))), collapse = '\n')
+  asis_output(res)
+}
+
+registerS3method("knit_print", "data.frame", knit_print.data.frame)
+registerS3method("knit_print", "grouped_df", knit_print.data.frame)
+
+knitr::opts_chunk$set(fig.retina = 3,
+                      tidy.opts = list(width.cutoff = 120),  # For code
+                      options(width = 90),  # For output
+                      fig.asp = 0.618, fig.width = 7, 
+                      fig.align = "center", out.width = "85%")
+
+options(dplyr.summarise.inform = FALSE,
+        knitr.kable.NA = "")
+```
+
+```{r load-libraries, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(countrycode)
+library(here)
+```
+
+# Load raw data
+
+```{r load-raw-data, cache=TRUE, warning=FALSE, message=FALSE}
+# V-Dem pandemic backsliding
+pandem_raw <- read_csv(here("data", "raw_data", "pandem", "csv_files", "PanDem_ts_V5.csv"))
+
+# ICCPR derogations
+derogations_raw <- read_csv(here("data", "raw_data", "derogations", "Pandemic backsliding - Sheet1.csv"))
+
+# V-Dem
+vdem_raw <- read_rds(here("data", "raw_data", "Country_Year_V-Dem_Full+others_R_v10",
+                         "V-Dem-CY-Full+Others-v10.rds")) %>% as_tibble()
+```
+
+# Clean up data
+
+```{r clean-data}
+emlaw_lookup <- tribble(
+  ~emlaw, ~emlaw_fct, ~emlaw_cond,
+  1, "Declaration in existing legal framework", "Emergency response with legal instruments",
+  2, "Declaration in existing legal framework, distinguishes public health emergency", "Emergency response with legal instruments",
+  3, "Declaration of disaster where different from emergency", "Emergency response with legal instruments",
+  4, "Declaration using other legislation", "Emergency response with legal instruments",
+  5, "Emergency response without legal instruments", "Emergency response without legal instruments",
+  6, "No emergency response", "No emergency response",
+  7, "Other", "Other"
+)
+
+regime_lookup <- tribble(
+  ~v2x_regime, ~regime,
+  0, "Closed autocracy",
+  1, "Electoral autocracy",
+  2, "Electoral democracy",
+  3, "Liberal democracy"
+) %>% 
+  mutate(regime = fct_inorder(regime, ordered = TRUE))
+
+type_lookup <- tribble(
+  ~type, ~type_clean,
+  "A", "Derogated as intended",
+  "B", "Derogated; measures not temporary, proportional, or necessary",
+  "C", "Emergency declared; no formal derogation",
+  "D", "No emergency; no formal derogation",
+  "E", "Has not ratified ICCPR"
+) %>% 
+  mutate(type_clean_letter = paste0(type, ": ", type_clean)) %>% 
+  mutate(across(starts_with("type"), ~fct_inorder(., ordered = TRUE)))
+
+pandem_clean <- pandem_raw %>% 
+  mutate(ndrights_fct = factor(ndrights, levels = 0:1, 
+                               labels = c("No violations", "Violations of non-derogable rights"))) %>% 
+  group_by(country_name) %>% 
+  mutate(emlaw_min = min(emlaw),
+         pandem_max = max(pandem),
+         panback_max = max(panback)) %>% 
+  ungroup() %>% 
+  left_join(emlaw_lookup, by = "emlaw") %>% 
+  left_join(rename_with(emlaw_lookup, ~str_c(., "_min"), everything()), by = "emlaw_min") %>% 
+  left_join(regime_lookup, by = "v2x_regime") %>% 
+  mutate(emlaw_fct = factor(emlaw_fct, levels = emlaw_lookup$emlaw_fct, ordered = TRUE),
+         emlaw_cond = factor(emlaw_cond, levels = unique(emlaw_lookup$emlaw_cond), ordered = TRUE)) %>% 
+  mutate(emlaw_min_fct = factor(emlaw_fct, levels = emlaw_lookup$emlaw_fct, ordered = TRUE),
+         emlaw_min_cond = factor(emlaw_cond, levels = unique(emlaw_lookup$emlaw_cond), ordered = TRUE)) %>% 
+  mutate(cowcode = countrycode(country_name, "country.name", "cown",
+                               custom_match = c("Serbia" = 345,
+                                                "Hong Kong" = 997)),
+         iso3 = countrycode(country_name, "country.name", "iso3c"))
+
+pandem_single <- pandem_clean %>% 
+  filter(Quarter == "Q4")
+glimpse(pandem_single)
+
+derogations_clean <- derogations_raw %>% 
+  rename(ratified = `Did they ratify/are they a member? (1=Yes, 0=No, 99= Not possible)`,
+         derogate = `Did they officially derogate?`,
+         derogation_start = `Derogation start date`,
+         derogation_end = `Derogation end date`,
+         country_name = Country) %>% 
+  mutate(country_name = recode(country_name, "Columbia" = "Colombia")) %>% 
+  mutate(cowcode = countrycode(country_name, "country.name", "cown",
+                               custom_match = c("Serbia" = 345,
+                                                "State of Palestine" = 998,
+                                                "Cook Islands" = NA,
+                                                "Niue" = NA)),
+         iso3 = countrycode(country_name, "country.name", "iso3c"))
+glimpse(derogations_clean)
+
+vdem_clean <- vdem_raw %>% 
+  filter(year > 2015) %>% 
+  rename(cowcode = COWcode) %>% 
+  mutate(cowcode = case_when(
+    country_name == "Hong Kong" ~ 997,
+    country_name == "Palestine/West Bank" ~ 998,
+    TRUE ~ cowcode
+  )) %>% 
+  mutate(iso3c = countrycode(country_name, "country.name", "iso3c",
+                             custom_match = c("Kosovo" = "XKK",
+                                              "Somaliland" = "XSO",
+                                              "Zanzibar" = "EAZ"))) %>% 
+  select(country_name, year, cowcode, iso3c, 
+         # Civil society stuff
+         v2cseeorgs,  # CSO entry and exit
+         v2csreprss,  # CSO repression
+         v2cscnsult,  # CSO consultation
+         v2csprtcpt,  # CSO participatory environment
+         v2csgender,  # CSO women's participation
+         v2csantimv,  # CSO anti-system movements
+         v2xcs_ccsi,  # Core civil society index (entry/exit, repression, participatory env)
+         # Human rights and politics
+         # Political corruption index (less to more, 0-1) (public sector +
+         # executive + legislative + judicial corruption)
+         v2x_corr,
+         # Rule of law index
+         v2x_rule,
+         # Rights indexes
+         v2x_civlib,  # Civil liberties index
+         v2x_clphy,  # Physical violence index
+         v2x_clpriv,  # Private civil liberties index
+         v2x_clpol,  # Political civil liberties index
+         # Democracy
+         v2x_polyarchy
+  )
+glimpse(vdem_clean)
+
+pandem_derog <- derogations_clean %>% 
+  left_join(pandem_single, by = c("country_name", "cowcode", "iso3")) %>% 
+  left_join(filter(vdem_clean, year == 2019), by = c("country_name", "cowcode")) %>% 
+  filter(!is.na(X1)) %>%
+  mutate(has_derogation_end = case_when(
+    is.na(derogation_end) ~ FALSE,
+    str_detect(derogation_end, "N/A") ~ FALSE,
+    TRUE ~ TRUE
+  )) %>% 
+  mutate(has_emergency_end = emlimit == 1) %>% 
+  mutate(nonproportional = Type1 > 1 | Type2 == 1 | Type3 > 1) %>% 
+  mutate(type = case_when(
+    derogate == 1 & has_derogation_end & !nonproportional ~ "A",
+    derogate == 1 & (!has_derogation_end | nonproportional) ~ "B",
+    derogate == 0 & ratified == 1 & emlaw < 5 ~ "C",
+    derogate == 0 & ratified == 1 & emlaw >= 5 ~ "D",
+    TRUE ~ "E"
+  )) %>% 
+  left_join(type_lookup, by = "type")
+glimpse(pandem_derog)
+```
+
+# Save data for later use
+
+```{r save-data}
+saveRDS(pandem_clean, here("data", "derived_data", "pandem_clean.rds"))
+saveRDS(pandem_single, here("data", "derived_data", "pandem_single.rds"))
+saveRDS(derogations_clean, here("data", "derived_data", "derogations_clean.rds"))
+saveRDS(vdem_clean, here("data", "derived_data", "vdem_clean.rds"))
+saveRDS(pandem_derog, here("data", "derived_data", "pandem_derog.rds"))
+```

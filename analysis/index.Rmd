@@ -2,7 +2,6 @@
 title: "Derogations and Democratic Backsliding: Exploring the Pandemic's Effects on Civic Spaces"
 author: "Suparna Chaudhry and Andrew Heiss"
 date: "`r format(Sys.time(), '%F')`"
-# site: safesite::safesite
 ---
 
 ```{r setup, include=FALSE}
@@ -17,4 +16,3 @@ In an effort to combat the COVID-19 pandemic, most governments have imposed rest
 ## Code
 
 All the raw code and data for this paper is available in a [GitHub repository](https://github.com/andrewheiss/covid-derogations).
-
