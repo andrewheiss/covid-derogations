@@ -1,0 +1,33 @@
+name: covid-derogations
+exclude:
+- Makefile
+navbar:
+  title: COVID derogations
+  type: inverse
+  right:
+  - text: Clean data
+    icon: fas fa-table
+    href: 01_clean-data.html
+  - text: Descriptive analysis
+    icon: fas fa-chart-bar
+    href: 02_descriptive-analysis.html
+output:
+  html_document:
+    theme: cosmo
+    css: html/fixes.css
+    include:
+      after_body: html/footer.html
+    highlight: kate
+    code_folding: show
+    code_download: yes
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+    toc_depth: 4
+    fig_height: 4
+    fig_width: 7
+    lib_dir: site_libs
+    self_contained: no
+output_dir: _site
+new_session: yes
