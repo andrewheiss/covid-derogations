@@ -16,6 +16,14 @@ data/derived_data/
 **/*_files/*
 **/*_cache/*
 
+# Manuscript output
+manuscript/*.docx
+manuscript/*.html
+manuscript/*.pdf
+manuscript/*.tex
+manuscript/tex_out/*
+manuscript/pandoc/bin/vc*
+
 # Output
 # (ignore for now)
 analysis/output/
