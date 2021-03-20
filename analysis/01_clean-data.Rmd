@@ -33,6 +33,7 @@ options(dplyr.summarise.inform = FALSE,
 ```{r load-libraries, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(countrycode)
+library(jsonlite)
 library(here)
 ```
 
@@ -48,6 +49,17 @@ derogations_raw <- read_csv(here("data", "raw_data", "derogations", "Pandemic ba
 # V-Dem
 vdem_raw <- read_rds(here("data", "raw_data", "Country_Year_V-Dem_Full+others_R_v10",
                          "V-Dem-CY-Full+Others-v10.rds")) %>% as_tibble()
+
+# Civicus Monitor
+# We downloaded the standalone embeddable widget
+# (https://monitor.civicus.org/widgets/world/) as an HTML file with
+# `wget https://monitor.civicus.org/widgets/world/` and saved it as index_2021-03-19.html
+#
+# We then extracted the COUNTRIES_DATA variable embedded in a <script> tag
+# (xpath = /html/body/script[5]), which is JSON-ish, but not quite. jsonlite
+# can't parse it for whatever reason, but some online JSON formatter and
+# validator could, so we ran it through that and saved the resulting clean file
+civicus_raw <- read_json(here("data", "raw_data", "Civicus", "civicus_2021-03-19.json"))
 ```
 
 # Clean up data
@@ -83,6 +95,16 @@ type_lookup <- tribble(
 ) %>% 
   mutate(type_clean_letter = paste0(type, ": ", type_clean)) %>% 
   mutate(across(starts_with("type"), ~fct_inorder(., ordered = TRUE)))
+
+civicus_lookup <- tribble(
+  ~value, ~category,
+  1, "Closed",
+  2, "Repressed",
+  3, "Obstructed",
+  4, "Narrowed",
+  5, "Open"
+) %>% 
+  mutate(category = fct_inorder(category, ordered = TRUE))
 
 pandem_clean <- pandem_raw %>% 
   mutate(ndrights_fct = factor(ndrights, levels = 0:1, 
@@ -180,6 +202,22 @@ pandem_derog <- derogations_clean %>%
   )) %>% 
   left_join(type_lookup, by = "type")
 glimpse(pandem_derog)
+
+civicus_clean <- civicus_raw %>% 
+  as_tibble() %>% 
+  slice(1) %>% 
+  pivot_longer(everything(), names_to = "name", values_to = "value") %>% 
+  mutate(value = map_chr(value, ~.)) %>%
+  mutate(value = parse_number(value, na = c("", "NA", "None"))) %>% 
+  mutate(country_name = countrycode(name, "iso3c", "country.name",
+                                    custom_match = c("KOSOVO" = "XKK",
+                                                     "SVT" = "VCT")),
+         iso3c = countrycode(country_name, "country.name", "iso3c",
+                             custom_match = c("XKK" = "Kosovo",
+                                              "VCT" = "Saint Vincent and the Grenadines"))) %>% 
+  left_join(civicus_lookup, by = "value") %>% 
+  select(-name, -value, -country_name)
+glimpse(civicus_clean)
 ```
 
 # Save data for later use
@@ -190,4 +228,5 @@ saveRDS(pandem_single, here("data", "derived_data", "pandem_single.rds"))
 saveRDS(derogations_clean, here("data", "derived_data", "derogations_clean.rds"))
 saveRDS(vdem_clean, here("data", "derived_data", "vdem_clean.rds"))
 saveRDS(pandem_derog, here("data", "derived_data", "pandem_derog.rds"))
+saveRDS(civicus_clean, here("data", "derived_data", "civicus_clean.rds"))
 ```
