@@ -13,34 +13,131 @@ date: March 21, 2021
 published: This is an early draft of a working paper.
 git-repo: https://github.com/andrewheiss/covid-derogations
 abstract: >-
-  In an effort to combat the COVID-19 pandemic, most governments have imposed restrictions on movement, association, and other civic freedoms in the interest of public health. In many cases, such as New Zealand, these emergency measures have been temporary and respect for human rights has returned to normal. In many other instances, however, governments have used these restrictions to suppress opposition and more permanently restrict civic space. Systematically measuring the consequences of COVID restrictions, however, is a difficult task. We will examine two possible quantitative measures of the relationship between of COVID restrictions and civil society space. First, we will use the Variety of Democracy project's newly released Pandemic Violations of Democratic Standards Index to explore if and how civil society restrictions predict pandemic backsliding. Second, while many countries sign international human rights treaties that ostensibly bind states to respect rights, several treaties allow for emergency derogations from these obligations. We will tabulate formal human rights treaty derogations due to the pandemic and explore whether these emergency measures led to lasting declines in associational and human rights. We hope that our exploration of these two measures will provide rich data-based descriptions of the relationship between COVID restrictions and civic space that will allow for more causal work in the future.
+  In an effort to combat the COVID-19 pandemic, most governments have imposed restrictions on civic freedoms in the interest of public health. In many cases, these emergency measures have been temporary and proportional in terms of controling the pandemic. In many other instances, however, governments have used these restrictions to suppress opposition and more permanently restrict civic space. Systematically measuring the consequences of COVID restrictions, however, is a difficult task. We examine two possible quantitative measures of the relationship between of COVID restrictions and civil society space. First, we use the Variety of Democracy project's newly released Pandemic Violations of Democratic Standards Index to explore if and how civil society restrictions predict pandemic backsliding. Second, while many countries sign international human rights treaties that ostensibly bind states to respect rights, several treaties allow for emergency derogations from these obligations. We tabulate formal human rights treaty derogations due to the pandemic and explore whether these emergency measures led to lasting declines in associational and human rights. We hope that our exploration of these two measures will provide rich data-based descriptions of the relationship between COVID restrictions and civic space that will allow for more causal work in the future.
 reference-section-title: References
+bibliography: bibliography.bib
+csl: pandoc/csl/chicago-author-date.csl
+output:
+  bookdown::pdf_document2: 
+    template: pandoc/templates/xelatex.tex
+    dev: cairo_pdf
+    pandoc_args: 
+      - "--top-level-division=section"
+      - "--shift-heading-level-by=0"
+      - "-V"
+      - "bibstyle-chicago-authordate"
+      - "-V"
+      - "chapterstyle=hikma-article"
+    md_extensions: +raw_tex
+    latex_engine: xelatex
+    toc: no
+    keep_tex: yes
+    citation_package: biblatex
+  bookdown::html_document2: 
+    number_sections: false
+    template: pandoc/templates/html.html
+    css: pandoc/templates/ath-clean.css
+    md_extensions: +raw_tex
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.retina = 3,
+                      tidy.opts = list(width.cutoff = 120),  # For code
+                      options(width = 90),  # For output
+                      fig.asp = 0.618, fig.width = 7, 
+                      fig.align = "center", out.width = "85%",
+                      echo = FALSE, warning = FALSE, message = FALSE)
+
+options(dplyr.summarise.inform = FALSE,
+        knitr.kable.NA = "")
+
 library(tidyverse)
 library(knitr)
 library(kableExtra)
+library(scales)
+library(janitor)
+library(ggbeeswarm)
+library(patchwork)
+library(sf)
 library(here)
+
+source(here("lib", "graphics.R"))
+
+# Generated via random.org
+set.seed(9951)
+
+pandem_clean <- readRDS(here("data", "derived_data", "pandem_clean.rds"))
+pandem_single <- readRDS(here("data", "derived_data", "pandem_single.rds"))
+derogations_clean <- readRDS(here("data", "derived_data", "derogations_clean.rds"))
+vdem_clean <- readRDS(here("data", "derived_data", "vdem_clean.rds"))
+pandem_derog <- readRDS(here("data", "derived_data", "pandem_derog.rds"))
+civicus_clean <- readRDS(here("data", "derived_data", "civicus_clean.rds"))
+
+world_map <- read_sf(here("data", "raw_data", "ne_110m_admin_0_countries",
+                          "ne_110m_admin_0_countries.shp")) %>% 
+  filter(ISO_A3 != "ATA")
+
+matrix_from_vector <- function(x, ncol) {
+  n_balanced <- ceiling(length(x) / ncol) * ncol
+  matrix(c(x, rep(NA, n_balanced - length(x))), ncol = ncol)
+}
+```
+
+```{r calc-derogations}
+derog_count <- derogations_clean %>% 
+  filter(ratified == 1) %>% 
+  count(derogate)
 ```
 
 <!-- manuscript.md is generated from manuscript.Rmd. Only edit the .Rmd file, *not* the .md file. -->
 
-Combatting a deadly virus like SARS-CoV-2 requires extraordinary public health measures that often conflict with personal rights and freedoms. In an effort to fight the COVID-19 pandemic, governments across the world have imposed restrictions on the freedom of movement, association, assembly, and other civic freedoms in the interest of public health. While countries are ostensibly free to make these emergency domestic policy decisions within their own borders, many states are also bound by international human rights treaties. Throughout the COVID-19 pandemic, many countries have declared states of emergency and formally derogated (i.e. temporarily suspended) their international treaty obligations. However, far more countries have adopted emergency measures and restricted individual liberties than have derogated from human rights treaties. While some states that have formally derogated with temporary and proportionate emergency responses, as advised by the United Nations Office of the High Commissioner of Human Rights [@ohchr:2020], others have used these emergency measures to suppress opposition and more permanently restrict civic space. During the COVID-19 pandemic, how many countries have formally derogated from their human rights treaty obligations and how does the nature of measures implemented during this period differ across countries? In the long-term, we aim to use our rich data-based description of the relationship between pandemic restrictions and civic space to examine whether these emergency measures led to lasting declines in associational and human rights, furthering the phenomenon of closing civic space.
+Combating a deadly virus like SARS-CoV-2 requires extraordinary public health measures that often conflict with personal rights and freedoms. In an effort to fight the COVID-19 pandemic, governments across the world have imposed restrictions on the freedom of movement, association, assembly, and other civic freedoms in the interest of public health. While countries are ostensibly free to make these emergency domestic policy decisions within their own borders, many states are also bound by international human rights treaties. Throughout the COVID-19 pandemic, many countries have declared states of emergency and formally derogated (i.e. temporarily suspended) their international treaty obligations. However, far more countries have adopted emergency measures and restricted individual liberties than have derogated from human rights treaties. While some states that have formally derogated with temporary and proportionate emergency responses, as advised by the United Nations Office of the High Commissioner of Human Rights [@ohchr:2020], others have used these emergency measures to suppress opposition and more permanently restrict civic space. During the COVID-19 pandemic, how many countries have formally derogated from their human rights treaty obligations and how has the nature of measures implemented during this period differed across countries? In the long-term, we aim to use our rich data-based description of the relationship between pandemic restrictions and civic space to examine whether these emergency measures led to lasting declines in associational and human rights, furthering the phenomenon of closing civic space.
 
-Studying state compliance with the international human rights treaty obligations as well as the (unintended) effects of derogations is important, especially given the ongoing prior phenomenon of closing civic space. Even prior to the pandemic, since 2013, 91 countries had proposed or enacted 244 measures restricting civil society [@icnl:2021]. In Human Rights Watch's 2016 World Report, Executive Director Kenneth Roth argued that civil society was under more aggressive attack than at any time in recent memory. ANDREW: DO YOU WANT TO INCLUDE SOME SUMMARY FIGURES FROM OUR DATA/CLOSING SPACE CHAPTER??
+```{r calc-civicus}
+civicus <- civicus_clean %>%
+  count(category) %>% 
+  mutate(prop = n / sum(n)) %>% 
+  mutate(prop_nice = percent_format(accuracy = 1)(prop)) %>% 
+  split(.$category)
+```
 
-TODO: I will do that ↑
+Studying state compliance with the international human rights treaty obligations as well as the (unintended) effects of derogations is important, especially given the ongoing prior phenomenon of closing civic space. Even prior to the pandemic, since 2013, 91 countries had proposed or enacted 244 measures restricting civil society [@icnl:2021]. In Human Rights Watch's 2016 World Report, Executive Director Kenneth Roth argued that civil society was under more aggressive attack than at any time in recent memory, and over the past decade, the majority of the world has seen a substantial narrowing of allowable civic space. As seen in Figure \@ref(fig:civicus-map), by the end of 2020, only `r civicus$Open$prop_nice` of countries had open and unrestricted civil societies [@civicusmonitor; @ChaudhryHeiss:2021].
+
+```{r civicus-map, fig.cap="2020 CIVICUS Monitor civic space ratings"}
+map_with_civicus <- world_map %>% 
+  # Fix some Natural Earth ISO weirdness
+  mutate(ISO_A3 = ifelse(ISO_A3 == "-99", as.character(ISO_A3_EH), as.character(ISO_A3))) %>% 
+  mutate(ISO_A3 = case_when(
+    .$ISO_A3 == "GRL" ~ "DNK",
+    .$NAME == "Norway" ~ "NOR",
+    .$NAME == "Kosovo" ~ "XKK",
+    TRUE ~ ISO_A3
+  )) %>% 
+  left_join(civicus_clean, by = c("ISO_A3" = "iso3c"))
+
+ggplot() +
+  geom_sf(data = map_with_civicus, aes(fill = fct_rev(category)), size = 0.15, color = "black") +
+  coord_sf(crs = st_crs("ESRI:54030")) +  # Robinson
+  scale_fill_viridis_d(option = "plasma", end = 0.9, 
+                       na.translate = FALSE, name = "Civic space") +
+  theme_pandem_map() + 
+  theme(legend.key.size = unit(0.7, "lines"))
+```
 
 According to the International Center for Not-for-Profit Law (ICNL), since the beginning of the pandemic in March 2020, 107 countries have declared official states of emergency, with 56 implementing measures affecting freedom of expression and an astonishing 139 imposing measures affecting freedom of assembly [@icnl-covid]. Many other countries have erected new barriers to public information, limited media access, engaged in government-sponsored disinformation campaigns, and penalized dissent. Some countries have prevented NGOs from delivering services and banned civil society organizations from carrying out their missions. Others have used pandemic restrictions as an excuse for delaying elections [@ifes:2020] or to denying arrested individuals adequate legal representation in judicial proceedings [@unodc]. The pandemic has led to a marked increase in human rights violations around the world.
 
 States that are signatories to international human rights treaties are arguably bound to uphold them and limit potential violations of human rights. While many countries have been able to implement emergency public health measures without (1) requesting formal derogations from international treaties or (2) violating mass human rights, many others have essentially violated their treaty commitments. While issuing derogations is not necessarily a sign of impending human rights violations, several countries have already renewed their initial derogations, leading to concerns of a rise in serial derogators and a potential for emergency measures that are neither proportional nor temporary.
 
-Using original data on derogations to the International Covenant on Civil and Political Rights (ICCPR) during the pandemic as well as new data collected by the Varieties of Democracy (V-Dem) project on emergency measures implemented during the COVID-19 pandemic, we find 1) HOW MANY COUNTRIES ACTUALLY DEROGATED 2) Countries that implement emergency measures while legally derogating from their treaty commitments ARE DOING WHAT/CONFIRM less likely to violate non-derogable rights during the pandemic ONCE WE HAVE FULL DATA 3) ANY OTHER FINDINGS
+We explore the relationship between emergency pandemic responses, treaty derogations, human rights, democratiziation, and the space for civil society using original data on derogations from the International Covenant on Civil and Political Rights (ICCPR) during the pandemic as well as new data collected by the Varieties of Democracy (V-Dem) project on emergency measures implemented during the COVID-19 pandemic. After looking at at some of the predictors of the adoption of emergency measures, the violation of human rights, and the choice to derogate, we develop a typology of pandemic responses and find that most countries failed to request formal ICCPR derogations despite the adoption of strict publich health measures. Only `r filter(derog_count, derogate == 1)$n` countries submitted formal derogations as part of their pandemic response, and of these, five adopted policies that were not temporary, proportional, or necessary. We then provide short case studies of Guatemala, Armenia, Egypt, and India to illustrate different types of choices to derogate and declare emergencies. We conclude with brief thoughts about the potential of using this data for future work.
 
-TODO: I'll add those things ↑
 
-# Derogations
+# International treaty derogations
+
+Derogations in international law authorize states to temporarily suspend their international treaty commitments during times of crises, providing them with flexibility in responding to national crises. However, because derogations are only triggered during extraordinary times of war, disease, and other extenuating circumstances, these suspensions of obligations occur when individual liberties are under serious threat [@HBderogations, 674, 677]. By declaring a state of public emergency and formally derogating, states acknowledge that these measures are temporary, necessary, and proportional to the interest at stake, with an aim to restore normalcy as soon as possible. 
+
+Derogations—especially through the use of formal notifications by the state—provide vital information to both international and domestic monitoring bodies, interest groups, and advocates about which rights are suspended, for how long, and the reasoning behind these suspensions. This information allows these actors—at least in principle—to challenge measures that are excessive, vague, or outlast the intended time frame of their implementation [@Helfer:2021]. Derogations also provide an important temporary escape hatch—without the ability to derogate, countries facing emergencies may outrightly violate their treaty commitments under international law. Further, they may also illegally violate non-derogable rights such as right to life, freedom from torture, and slavery.
 
 Derogations in international law authorize states to temporarily suspend their international treaty commitments during times of crises, providing them with flexibility in responding to national crises. However, because derogations are only triggered during extraordinary times of war, disease, and other extenuating circumstances, these suspensions of obligations occur when individual liberties are under serious threat [@HBderogations, 674, 677]. By declaring a state of public emergency and formally derogating, states acknowledge that these measures are temporary, necessary, and proportional to the interest at stake, with an aim to restore normalcy as soon as possible. Derogations provide an important temporary escape hatch—without the ability to derogate, countries facing emergencies may outrightly violate their treaty commitments under international law. Further, they may also illegally violate non-derogable rights such as right to life, freedom from torture, and slavery.
 
@@ -48,39 +145,306 @@ While the most frequent derogators are stable democracies and countries where do
 
 ## Derogations during the pandemic
 
-The exceptional circumstances brought on by the global pandemic has led to numerous extensive derogations. International human rights treaties typically lay out circumstances during which derogations may take place. For signatories of the European Convention on Human Rights, for instance, derogations can be made "in time of war or other public emergency threatening the life of the nation" [@ohchr:2003, 815]; for the American Convention on Human Rights, derogations are allowed in "time of war, public danger, or other emergency that threatens the independence or security of a state" [@ohchr:2003, 859]. In the current version of this paper, however, we focus on derogations—and violations—from the International Covenant on Civil and Political Rights (ICCPR), arguably the most significant and extensive treaties in the international human rights regime.
+The exceptional circumstances brought on by the global pandemic have led to numerous extensive derogations. International human rights treaties typically lay out circumstances during which derogations may take place. For signatories of the European Convention on Human Rights (ECHR), for instance, derogations can be made "in time of war or other public emergency threatening the life of the nation" [@ohchr:2003, 815]; for the American Convention on Human Rights, derogations are allowed in "time of war, public danger, or other emergency that threatens the independence or security of a state" [@ohchr:2003, 859]. In the current version of this paper, however, we focus on derogations from—and violations of—the International Covenant on Civil and Political Rights (ICCPR), arguably the most significant and extensive treaties in the international human rights regime.
 
 The ICCPR was adopted by the UN General Assembly on December 19, 1966 and came into force on March 23, 1976. It was designed to recognize "the inherent dignity and of the equal and inalienable rights of all members of the human family" and it outlined dozens of articles aimed at creating conditions where everyone can enjoy their civil, political, economic, social, and cultural rights. Like other human rights treaties, the ICCPR allows the suspension or derogation of certain civil and political rights only under specific situations "public emergency which threatens the life of the nation" [@iccpr].
 
-Recognizing that public health exigencies would require states to curb civil and political rights, the UN Human Rights Office of the High Commissioner (OHCHR) published guidance on emergency measures on April 27 2020, stating that any emergency measures must meet specific criteria of legality, necessity, proportionality, and non-discrimination. Further, the OHCHR reminded countries that states of emergency are specifically regulated under human rights law and that "states should take measures to prevent human rights violations and abuses associated with the state of emergency perpetrated by state and non-state actors" [@ohchr:2020]. The OHCHR concluded with a reminder of the necessity of maintaining democratic norms and practices, including transparency, the right to information, media freedom, respect for rule of law, and allowing dissent.
+Recognizing that public health exigencies would require states to curb civil and political rights, the UN Human Rights Office of the High Commissioner (OHCHR) published guidance on emergency measures on April 27 2020, stating that any emergency measures must meet specific criteria of legality, necessity, proportionality, and non-discrimination. Further, the OHCHR reminded countries that states of emergency are specifically regulated under human rights law and that "states should take measures to prevent human rights violations and abuses associated with the state of emergency perpetrated by state and non-state actors" [@ohchr:2020]. The OHCHR concluded with a reminder of the necessity of maintaining democratic norms and practices, including transparency, the right to information, media freedom, respect for rule of law, and allowing dissent. It is worth noting, however, that no international court or monitoring body has assessed whether or not individual countries' measures are necessary, temporary, proportionate.
 
-However, given the ongoing trend of limiting civic space, many of these democratic freedoms have been under assault for years. Additionally, trends in democratic backsliding more generally raise concerns that many states may be using emergency measures intended to deal with the pandemic as a way to permanently suppress civic space and limit human rights.
-
-TODO: Do states formally derogate before doing this? How many do that?
+However, given the ongoing trend of limiting civic space, many of these democratic freedoms have been under assault for years. Additionally, trends in democratic backsliding more generally raise concerns that many states may be using emergency measures intended to deal with the pandemic as a way to permanently suppress civic space and limit human rights. How many countries have formally derogated from their treaty obligations? How many have imposed official states of emergency? How have democratic norms, respect for human rights, and the environment for civil society fared under these emergency measures? Does formal derogation provide some protection against human rights abuses? Most importantly, will these emergency measures lead to prolonged abuses and reduced civic space?
 
 
-# Data
+# Derogations, emergencies, human rights, and civil society
 
-We explore these questions by combining two datasets. V-Dem's thing + our own collection of ICCPR derogations
+We explore these questions with both quantitative and qualitative data. In 2020, the Varieties of Democracy (V-Dem) project published "PanDem," a new dataset on pandemic-era democratic backsliding [@vdem-pandem]. This PanDem data tracks several important measures of democratization and human rights abuses, including data on national emergency measures, violations of non-derogable rights, limitations on the media and journalists, and military involvement in public health enforcement. PanDem also provides two indices measuring general violations of democratic standards and democratic backsliding. PanDem's data reveals fascinating relationships between pandemic emergency measures, democratization, and human rights.
+
+```{r calc-emergency-responses}
+em_response <- pandem_single %>% 
+  count(emlaw_cond_min) %>% 
+  mutate(prop = n / sum(n)) %>% 
+  mutate(prop = percent_format(accuracy = 1)(prop)) %>% 
+  mutate(emlaw_cond_min = make_clean_names(emlaw_cond_min)) %>% 
+  split(.$emlaw_cond_min)
+
+em_response$countries <- pandem_single %>% 
+  filter(emlaw_cond_min == "No emergency response") %>% 
+  pull(country_name) %>% 
+  knitr::combine_words()
+```
+
+## Emergency measures, human rights, and civil society
+
+A majority of countries made some sort of official public health response to the pandemic, and most used legal avenues for their responses (see Table \@ref(tab:tbl-emergency-responses)): `r em_response$emergency_response_with_legal_instruments$prop` of countries used legal instruments to declare public emergencies at some point during 2020, while `r em_response$emergency_response_without_legal_instruments$prop` used extralegal avenues. Only a handful had no official national emergency response throughout 2020: `r em_response$countries`.
+
+```{r tbl-emergency-responses}
+pandem_single %>% 
+  count(emlaw_fct_min, name = "N") %>% 
+  mutate(`%` = N / sum(N)) %>% 
+  mutate(`%` = percent_format(accuracy = 0.1)(`%`)) %>% 
+  rename("Emergency response" = emlaw_fct_min) %>% 
+  kbl(caption = "National emergency responses to the COVID-19 pandemic", 
+      booktabs = TRUE, linesep = "") %>% 
+  kable_styling(font_size = 9)
+```
+
+There are distinct patterns that help predict which kind of response a country made (see Figure \@ref(fig:democracy-regime-declaration)). There is a uniform distribution of adherence to democratic values within countries that used legal methods for declaring emergencies. For instance, both Denmark and Tajikistan used legal instruments to declare their respective emergencies. However, among countries that declared emergencies without any legal instruments, there are no countries that score above 0.5 on V-Dem's liberal democracy index. All countries that used extralegal methods for handling the pandemic have weak democratic norms. This is also true when looking specifically at regime type. Only one democracy—Sri Lanka—declared an emergency extralegally.
+
+```{r democracy-regime-declaration, fig.width=9.5, fig.height=4, fig.asp=NULL, out.width="100%", fig.cap="Emergency pandemic responses and democracy"}
+plot_democracy <- pandem_single %>% 
+  ggplot(aes(y = fct_rev(emlaw_cond_min), x = v2x_libdem, fill = emlaw_cond_min)) +
+  geom_quasirandom(groupOnX = FALSE, width = 0.2, 
+                   size = 1.75, color = "white", pch = 21) +
+  guides(fill = FALSE) +
+  scale_fill_viridis_d(option = "plasma", end = 0.8) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  coord_cartesian(xlim = c(0, 1)) +
+  labs(x = "V-Dem liberal democracy index", y = NULL,
+       caption = "Lower values indicate less democracy",
+       title = "Level of democracy") +
+  theme_pandem(9) +
+  theme(panel.grid.major.x = element_blank(),
+        plot.title = element_text(size = rel(1)))
+
+plot_regime <- pandem_single %>% 
+  ggplot(aes(x = regime, y = fct_rev(emlaw_cond_min), fill = emlaw_cond_min)) +
+  geom_point(position = position_jitter(width = 0.2, height = 0.2),
+             size = 1.75, color = "white", pch = 21) +
+  scale_fill_viridis_d(option = "plasma", end = 0.8) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  guides(fill = FALSE) +
+  labs(x = "V-Dem Regimes of the World index", y = NULL,
+       title = "Regime type") +
+  theme_pandem(9) +
+  theme(panel.grid.major.x = element_blank(),
+        plot.title = element_text(size = rel(1)))
+
+plot_democracy + plot_regime
+```
+
+An overarching fear as countries declared emergency pandemic measures is that these policies would serve as an excuse to violate human rights, limit the space for civil society, and lead to democratic backsliding. PanDem includes data on the intensity of various human rights violations, including discriminatory actions (measured on a 0–3 scale), violations of non-derogable rights like the right to life, freedom from torture, and freedom of thought, conscience, and religion, and physical violence by the police or military (measured on a 0–3 scale). The variety of pandemic-justified human rights violations differs by countries' formal responses. 
+
+```{r violation-plots, fig.width=9.5, fig.height=3.25, fig.asp=NULL, out.width="100%", fig.cap="Human rights violations across different emergency responses"}
+violation_summary <- pandem_single %>% 
+  group_by(emlaw_cond_min) %>% 
+  summarize(across(c(discrim, ndrights, pomviol),
+                   ~mean(.)))
+
+plot_violation_ndrights <- violation_summary %>% 
+  pivot_longer(-emlaw_cond_min) %>% 
+  filter(name == "ndrights") %>% 
+  ggplot(aes(y = value, x = emlaw_cond_min, color = emlaw_cond_min)) +
+  geom_pointrange(aes(ymin = 0, ymax = value)) +
+  guides(color = FALSE) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  coord_cartesian(ylim = c(0, 0.15)) +
+  labs(y = "Proportion violating non-derogable rights", x = NULL,
+       title = "Violations of non-derogable rights") +
+  theme_pandem(9) +
+  theme(panel.grid.major.x = element_blank(),
+        plot.title = element_text(size = rel(1)))
+
+plot_violation_discrim <- violation_summary %>% 
+  pivot_longer(-emlaw_cond_min) %>% 
+  filter(name == "discrim") %>% 
+  ggplot(aes(y = value, x = emlaw_cond_min, color = emlaw_cond_min)) +
+  geom_pointrange(aes(ymin = 0, ymax = value)) +
+  guides(color = FALSE) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  labs(y = "Average discriminatory measures", x = NULL,
+       caption = "Original scale ranges from 0–3",
+       title = "Discriminatory measures") +
+  theme_pandem(9) +
+  theme(panel.grid.major.x = element_blank(),
+        plot.title = element_text(size = rel(1)))
+
+plot_violation_pomviol <- violation_summary %>% 
+  pivot_longer(-emlaw_cond_min) %>% 
+  filter(name == "pomviol") %>% 
+  ggplot(aes(y = value, x = emlaw_cond_min, color = emlaw_cond_min)) +
+  geom_pointrange(aes(ymin = 0, ymax = value)) +
+  guides(color = FALSE) +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  labs(y = "Average abusive enforcement", x = NULL,
+       caption = "Original scale ranges from 0–3",
+       title = "Abusive enforcement") +
+  theme_pandem(9) +
+  theme(panel.grid.major.x = element_blank(),
+        plot.title = element_text(size = rel(1)))
+
+plot_violation_discrim + plot_violation_ndrights + plot_violation_pomviol
+```
+
+As seen in Figure \@ref(fig:violation-plots), countries that implemented emergency measures without a formal legal process were more likely to engage in discriminatory measures and violate non-derogable rights. Surprisingly, countries that used formal legal instruments were more likely to enforce these measures harshly and have a higher average abusive enforcement score. This is possibly due the the fact that these countries' states of emergency were formalized and thus had official enforcement measures—there were administrative and legislative teeth to these regulations, so to speak. Countries that used extralegal measures for their emergencies had fewer legal avenues to abuse when enforcing.
+
+The level of democracy in a country is a fairly strong predictor of the severity of its pandemic response. As seen in Figure \@ref(fig:libdem-pandem), stronger democracies have substantially lower pandemic violations scores than countries with no democracy. Democracy is also a predictor of backsliding, though it has a curvilinear relationship due to the nature of backsliding. Strong democracies and non-democracies are at the lowest risk of backsliding already—strong consolidated democracies are ostensibly more resilient to authoritarian movements, while non-democracies have little democracy to undo. Countries with midrange democracy scores are at the highest risk of backsliding as a result of their emergency pandemic measures.
+
+```{r libdem-pandem, message=FALSE, fig.width=9.5, fig.height=4, fig.asp=NULL, out.width="100%", fig.cap="Relationship between liberal democracy, pandemic violations, and pandemic backsliding"}
+plot_libdem_pandem <- pandem_derog %>% 
+  ggplot(aes(x = v2x_libdem, y = pandem)) +
+  geom_point(aes(fill = emlaw_cond_min), pch = 21, color = "white", size = 1.75) +
+  geom_smooth(method = "lm") +
+  scale_fill_viridis_d(option = "plasma", end = 0.8) +
+  guides(fill = guide_legend(ncol = 1)) +
+  labs(x = "V-Dem liberal democracy index", y = "V-Dem pandemic violations index", fill = NULL) +
+  theme_pandem(9)
+
+plot_libdem_panback <- pandem_derog %>% 
+  ggplot(aes(x = v2x_libdem, y = panback)) +
+  geom_point(aes(fill = emlaw_cond_min), pch = 21, color = "white", size = 1.75) +
+  geom_smooth(method = "gam") +
+  scale_fill_viridis_d(option = "plasma", end = 0.8) +
+  guides(fill = guide_legend(ncol = 1)) +
+  labs(x = "V-Dem liberal democracy index", y = "V-Dem pandemic backsliding index", fill = NULL) +
+  theme_pandem(9)
+
+plot_libdem_pandem + plot_libdem_panback
+```
 
 
-# Derogations, democracy, human rights, and civil society
+## Derogations, emergency measures, and human rights
 
-## A typology of derogations
+Countries differ in how they have aligned and justified their emergency pandemic measures with their international treaty obligations. V-Dem's PanDem project does not include data on whether countries formally derogated from treaties. Accordingly, we collected our own original dataset listing all formal derogations from the ICCPR, which we will later expand to other treaties like the ECHR, ACHR, and the International Covenant on Economic, Social and Cultural Rights (CESCR). 
 
-4 different outcomes
+Of the `r sum(derog_count$n)` countries that have ratified the ICCPR, `r filter(derog_count, derogate == 1)$n` submitted formal derogations at some point during the pandemic. We combine our list of derogations with the PanDem data to determine how these derogations have respected human rights and resulted in measures that are temporary, proportional, or necessary. For the sake of this paper, we identify measures that are not temporary, proportional, or necessary based on whether (1) a declared emergency has an end date and is not repeated or renewed excessively, (2) discriminatory violations have been de jure minor, de jure major, or de facto major, (3) non-derogable rights have been violated, and (4) abusive enforcement has occurred often or is widespread. Identifying both "proper" and "improper" responses like this allows us to create a typology of derogations and emergency measures, summarized in Table \@ref(tab:tbl-derog-typology).[^typology-note] Table \@ref(tab:tbl-derog-a-b) lists all countries that formally derogated from ICCPR obligations, categorized by whether their emergency measures were temporary, proportional or necessary. In the appendix we include a list of countries that did not formally derogate (see Table \@ref(tab:tbl-derog-c-d)).
+
+[^typology-note]: PanDem only includes data for `r nrow(pandem_single)` countries, so the total here does not equal the ICCPR's `r sum(derog_count$n)` ratifying states.
+
+```{r tbl-derog-typology}
+pandem_derog %>% 
+  count(type_clean, name = "N") %>%
+  rename("Type of response" = type_clean) %>% 
+  kbl(caption = "Typology of possible pandemic responses across derogations and emergency responses",
+      booktabs = TRUE, linesep = "") %>% 
+  kable_styling(font_size = 9)
+```
+
+```{r tbl-derog-a-b}
+tbl_derog <- pandem_derog %>% 
+  filter(type %in% c("A", "B")) %>% 
+  arrange(type, country_name)
+
+tbl_derog %>% 
+  select(Country = country_name, `Derogation start` = derogation_start, 
+         `Derogation end` = derogation_end) %>% 
+  kbl(caption = "Countries that either derogated as intended or derogated with excessive human rights violations",
+      booktabs = TRUE, linesep = "") %>% 
+  kable_styling(font_size = 9) %>% 
+  pack_rows(index = table(fct_inorder(fct_drop(tbl_derog$type_clean_letter))))
+```
+
+The severity of pandemic violations and democratic violations varies across these broader derogation responses (see Figure \@ref(fig:derogation-pandem)). Countries that derogated as intended have the lowest average level of pandemic violations and are the least likely to face pandemic-driven democratic backsliding. This is likely because the countries that are operating as the ICCPR intends—states facing emergency measures formally derogate some rights for a limited, time-bound period—are more likely to respect human rights and democratic norms in general. The average level of pandemic violations increases outside of these rule-followers, and countries that derogate disproportionately, declare formal emergencies without derogation, or declare extralegal emergencies without derogation have higher average levels of violations and backsliding. It thus appears that adhering to the derogation process is a strong indicator of national respect for human rights.
+
+```{r derogation-pandem, fig.width=9.5, fig.height=4, fig.asp=NULL, out.width="100%", fig.cap="Derogation decisions across pandemic violations and pandemic backsliding"}
+plot_derog_pandem <- pandem_derog %>% 
+  ggplot(aes(x = pandem, y = fct_rev(type_clean_letter), fill = type_clean_letter)) +
+  stat_summary(aes(fill = type_clean_letter), geom = "point", fun = "mean", 
+               size = 4, pch = 23, color = "white", alpha = 0.4, 
+               position = position_nudge(x = 0, y = -0.2)) +
+  geom_quasirandom(groupOnX = FALSE, width = 0.2, pch = 21, size = 2, color = "white") +
+  guides(color = FALSE, fill = FALSE) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  scale_fill_viridis_d(option = "plasma", end = 0.8) +
+  coord_cartesian(xlim = c(0, 0.65)) +
+  labs(x = "V-Dem pandemic violations index", y = NULL,
+       caption = "Diamonds show mean value; higher values indicate more violations",
+       title = "Derogations and pandemic violations") +
+  theme_pandem(9) +
+  theme(panel.grid.major.y = element_blank(),
+        plot.title = element_text(size = rel(1)))
+
+plot_derog_panback <- pandem_derog %>% 
+  ggplot(aes(x = panback, y = fct_rev(type_clean_letter), fill = type_clean_letter)) +
+  stat_summary(aes(fill = type_clean_letter), geom = "point", fun = "mean", 
+               size = 4, pch = 23, color = "white", alpha = 0.4, 
+               position = position_nudge(x = 0, y = -0.2)) +
+  geom_quasirandom(groupOnX = FALSE, width = 0.2, pch = 21, size = 2, color = "white") +
+  guides(color = FALSE, fill = FALSE) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_color_viridis_d(option = "plasma", end = 0.8) +
+  scale_fill_viridis_d(option = "plasma", end = 0.8) +
+  coord_cartesian(xlim = c(0, 0.5)) +
+  labs(x = "V-Dem pandemic backsliding index", y = NULL,
+       caption = "Diamonds show mean value; higher values indicate greater risk of democratic backsliding",
+       title = "Derogations and pandemic backsliding") +
+  theme_pandem(9) +
+  theme(panel.grid.major.y = element_blank(),
+        plot.title = element_text(size = rel(1)))
+
+plot_derog_pandem + plot_derog_panback
+```
+
+The level of civil society openness also varies substantially across these four categories of emergency responses (see Figure \@ref(fig:cssi-derogation)). Countries that formally derogated have far more open civil society than those that did not derogate. However, civil society openness is not necessarily a strong predictor of whether emergency measures are temporary or proportional. Interestingly, the five derogating countries that ended up abusing their privileges have relatively unrestricted and freely regulated civil societies. Countries that did not official derogate have more restricted space for civil society, and countries that did not issue a formal legal emergency and did not formally derogate tend to have an even lower average civil society index. Not surprisingly, countries that have not ratified the ICCPR have highly restricted civil societies.
+
+```{r cssi-derogation, fig.width=5, fig.height=4, fig.asp=NULL, fig.cap="Derogations across different levels of civil society openness"}
+pandem_derog %>% 
+  ggplot(aes(x = v2xcs_ccsi, y = fct_rev(type_clean_letter), fill = type_clean_letter)) +
+  stat_summary(aes(fill = type_clean_letter), geom = "point", fun = "mean", 
+               size = 4, pch = 23, color = "white", alpha = 0.4, 
+               position = position_nudge(x = 0, y = -0.2)) +
+  geom_quasirandom(groupOnX = FALSE, width = 0.1, pch = 21, size = 1.75, color = "white") +
+  guides(color = FALSE, fill = FALSE) +
+  scale_y_discrete(labels = function(x) str_wrap(x, width = 15)) +
+  scale_fill_viridis_d(option = "plasma", end = 0.8) +
+  coord_cartesian(xlim = c(0, 1)) +
+  labs(x = "V-Dem core civil society index", y = NULL,
+       caption = "Diamonds show mean value; higher values indicate more open civil society",
+       title = "Derogations and civil society openness") +
+  theme_pandem(9) +
+  theme(panel.grid.major.y = element_blank(),
+        plot.title = element_text(size = rel(1)))
+```
 
 
 # Case studies
 
-As shown above, numerous countries derogated from their ICCPR obligations during the COVID-19 pandemic. However, many of these countries implemented measures that exceeded the recommended legal, necessary, temporary, and proportional standards. The violation of human rights—whether or not a country formally or appropriately derogated—poses important consequences for civic space.
+As shown above, numerous countries derogated from their ICCPR obligations during the COVID-19 pandemic. However, many of these countries implemented measures that exceeded the recommended legal, necessary, temporary, and proportional standards. The violation of human rights—whether or not a country formally or appropriately derogated—poses important consequences for civic space. To complement our exploratory descriptive quantitative work and highlight the range in national responses, we illustrate the four types of derogation and emergency responses with preliminary case studies of Guatemala, Armenia, Egypt, and India, summarized in Table \@ref(tab:tbl-case-summary).
 
-In the long-term, while we assess this above relationship through the use of systematic data through quantitative means, below, we conduct some exploratory case illustrations. These cases show the range in variation in how states have responded to their international legal commitments - some have derogated as intended, some have officially derogated from their treaty commitments but their measures are arguably not considered as temporary and proportional as necessary. Yet, other countries have avoid derogating completely, thus violating their treaty commitments.
-
+```{r tbl-case-summary}
+tribble(
+  ~Type, ~country_name, ~Summary,
+  "A: Derogated as intended", "Guatemala", "Requested derogations early; derogations have been lawful and generally proportionate",
+  "B: Derogated; measures not temporary, proportional, or necessary", "Armenia", "Engaged in serial derogation; has committed some extraordinary human rights abuses",
+  "C: Emergency declared; no formal derogation", "Egypt", "Used pandemic as excuse to continue long-standing state of emergency and further limit civil society",
+  "D: No emergency; no formal derogation", "India", "Constitutionally prohibited from declaring an emergency and unable to formally derogate; has violated treaty agreements"
+) %>% 
+  left_join(select(pandem_derog, country_name, pandem, panback, v2xcs_ccsi), 
+            by = "country_name") %>% 
+  mutate(across(c(pandem, panback, v2xcs_ccsi), ~round(., 2))) %>% 
+  select(Country = country_name, Type, `Pandemic violations index` = pandem, 
+         `Pandemic backsliding index` = panback, `Civil society index` = v2xcs_ccsi, Summary) %>% 
+  kbl(align = c("l", "l", "c", "c", "c", "l"),
+      caption = "Summary of case studies",
+      booktabs = TRUE, linesep = "\\addlinespace") %>% 
+  kable_styling(font_size = 8) %>% 
+  column_spec(1, width = "0.1\\\\textwidth") %>% 
+  column_spec(2, width = "0.12\\\\textwidth") %>% 
+  column_spec(3, width = "0.09\\\\textwidth") %>% 
+  column_spec(4, width = "0.11\\\\textwidth") %>% 
+  column_spec(5, width = "0.09\\\\textwidth") %>% 
+  column_spec(6, width = "0.35\\\\textwidth") %>% 
+  footnote(general = 
+             c("Pandemic violations index ranges from 0 to 0.65; higher values represent worse violations", 
+               "Pandemic backsliding index ranges from 0 to 0.5; higher values represent greater democratic backsliding",
+               "Civil society index ranges from 0 to 1; higher values represent more open civil society"))
+```
 
 ## A: Derogated as intended
 
-TODO: Stuff here
+During the pandemic, Guatemala has derogated from both the ICCPR and the American Convention on Human Rights (ACHR). Similar to the ICCPR, the ACHR states its intent to reaffirm "their intention to consolidate in this hemisphere, within the framework of democratic institutions, a system of personal liberty and social justice based on respect for the essential rights of man" [@oas-achr]. Guatemala sent official notification of derogation to the Organization of American States (OAS) on March 23, 2020, stating the government's intention to derogate from Articles 15 and 22 of the ACHR.[^nv-gtm-3] Article 15 guarantees the right of peaceful assembly, while Article 22 protects the freedom of movement and residence, including rights for travel to and from Guatemala, as well as for "aliens" who flee persecution in their home country. Counter to trends in many countries across the globe, Guatemala notified the ICCPR before it sent notifications of derogation to the OAS, demonstrating a clear commitment to the treaties and international law. President Alejandro Giammattei formally requested a derogation from Articles 12 and 21 of the ICCPR on March 9, 2020, both of which concern the freedoms of movement, association, assembly and demonstration.
+
+[^nv-gtm-3]: Note verbal Ref. NV-OEA-M4-No.182-2020, March 23, 2020, <http://www.oas.org/es/sla/ddi/docs/tratados_multilaterales_suspencion_garantias_Guatemala_nota_No_182-2020.pdf>
+
+Guatemala was one of the first countries to act when the pandemic was declared in March, closing international borders as early as January [@osac-guatemala]. President Giammattei declared a state of emergency on March 21, instituting a lockdown that eventually ended in October 2020 [@Quixtan:2020]. The OHCHR commended the government on focusing on the role of women in the response to COVID-19 through an empowerment and awareness-raising campaign. Guatemala's displaced population has been severely impacted by the effects of the state of emergency. Cases of COVID-19 were reported among Guatemalan migrants and asylum seekers deported from Mexico and the United States of America. Many of these deportees had to undergo mandatory quarantine upon returning or entering Guatemala. OHCHR received information regarding inadequate infrastructure, food and sanitation at the quarantine shelters, and long waits to receive test results that prolonged the isolation of deportees [@ohchr-guat].
+
+As of January 19, 2021, the Guatemalan government has requested derogations from two additional articles of the ACHR (Articles 13 and 16), and extensions to their previous derogations from Articles 15 and 22. Article 16 of the ACHR—like Article 21 of the ICCPR—protects the freedom of association, while Article 13 protects the freedom of thought and expression. Guatemala's derogation from this particular Article has been seen by some as a concerning attempt to silence media criticisms of the government's handling of the pandemic [@gsod-guat]. There have been concerns about limited transparency within the government during COVID—though the government itself has not targeted any journalists, the media has been shut out of various congressional sessions and have been unable to report accurately on the pandemic. 
+
+Overall, though there are still causes for concern, Guatemala's derogations seem to be lawful and generally proportionate. The Central American nation has been quick to communicate its intentions to its treaty organizations, and has implemented lockdown restrictions that, though they have severely impacted Guatemala’s refugee and indigenous populations, have not been needlessly draconian or exploitative.
 
 ## B: Officially derogated but measures not temporary or proportional
 
@@ -130,3 +494,28 @@ Overall, India cannot declare a state of emergency due to the fact that its cons
 # Next steps
 
 It is too early to tell if derogations, emergency measures, and pandemic-era human rights violations will causally lead to reduced civic space—that data has yet to be collected, and sufficient time still has not passed. At the time of this writing, the majority of the world remains in the throes of combatting the pandemic and only a handful are successfully rolling out vaccines at a large scale. However, preliminary data shows that civil society space and pandemic measures are closely linked, and case study evidence shows that many countries have—and will likely continue to—used emergency powers to directly limit civic space and curtail associational freedoms specifically. Broader indexes like V-Dem's PanDem and more specific counts of treaty derogations can provide useful avenues for identifying pandemic-excused backsliding and rights violations and will be invaluable for future research.
+
+
+# Appendix: Countries that did not derogate
+
+```{r tbl-derog-c-d}
+matrix_c <- pandem_derog %>% 
+  filter(type == "C") %>% 
+  arrange(country_name) %>% 
+  pull(country_name) %>% 
+  matrix_from_vector(ncol = 4)
+
+matrix_d <- pandem_derog %>% 
+  filter(type == "D") %>% 
+  arrange(country_name) %>% 
+  pull(country_name) %>% 
+  matrix_from_vector(ncol = 4)
+
+matrix_combined <- rbind(cbind(levels(pandem_derog$type_clean_letter)[3], matrix_c),
+                         cbind(levels(pandem_derog$type_clean_letter)[4], matrix_d)) 
+
+matrix_combined[,-1] %>% 
+  kbl(booktabs = TRUE, linesep = "") %>% 
+  kable_styling(font_size = 9) %>% 
+  pack_rows(index = table(matrix_combined[,1]), indent = FALSE)
+```
