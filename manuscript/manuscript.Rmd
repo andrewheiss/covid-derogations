@@ -14,30 +14,10 @@ published: This is an early draft of a working paper.
 git-repo: https://github.com/andrewheiss/covid-derogations
 abstract: >-
   In an effort to combat the COVID-19 pandemic, most governments have imposed restrictions on civic freedoms in the interest of public health. In many cases, these emergency measures have been temporary and proportional in terms of controling the pandemic. In many other instances, however, governments have used these restrictions to suppress opposition and more permanently restrict civic space. Systematically measuring the consequences of COVID restrictions, however, is a difficult task. We examine two possible quantitative measures of the relationship between of COVID restrictions and civil society space. First, we use the Variety of Democracy project's newly released Pandemic Violations of Democratic Standards Index to explore if and how civil society restrictions predict pandemic backsliding. Second, while many countries sign international human rights treaties that ostensibly bind states to respect rights, several treaties allow for emergency derogations from these obligations. We tabulate formal human rights treaty derogations due to the pandemic and explore whether these emergency measures led to lasting declines in associational and human rights. We hope that our exploration of these two measures will provide rich data-based descriptions of the relationship between COVID restrictions and civic space that will allow for more causal work in the future.
+keywords: "Thing 1, Thing 2, Thing 3"
 reference-section-title: References
 bibliography: bibliography.bib
 csl: pandoc/csl/chicago-author-date.csl
-output:
-  bookdown::pdf_document2: 
-    template: pandoc/templates/xelatex.tex
-    dev: cairo_pdf
-    pandoc_args: 
-      - "--top-level-division=section"
-      - "--shift-heading-level-by=0"
-      - "-V"
-      - "bibstyle-chicago-authordate"
-      - "-V"
-      - "chapterstyle=hikma-article"
-    md_extensions: +raw_tex
-    latex_engine: xelatex
-    toc: no
-    keep_tex: yes
-    citation_package: biblatex
-  bookdown::html_document2: 
-    number_sections: false
-    template: pandoc/templates/html.html
-    css: pandoc/templates/ath-clean.css
-    md_extensions: +raw_tex
 editor_options: 
   chunk_output_type: console
 ---
@@ -184,7 +164,7 @@ pandem_single %>%
   rename("Emergency response" = emlaw_fct_min) %>% 
   kbl(caption = "National emergency responses to the COVID-19 pandemic", 
       booktabs = TRUE, linesep = "") %>% 
-  kable_styling(font_size = 9)
+  kable_styling()
 ```
 
 There are distinct patterns that help predict which kind of response a country made (see Figure \@ref(fig:democracy-regime-declaration)). There is a uniform distribution of adherence to democratic values within countries that used legal methods for declaring emergencies. For instance, both Denmark and Tajikistan used legal instruments to declare their respective emergencies. However, among countries that declared emergencies without any legal instruments, there are no countries that score above 0.5 on V-Dem's liberal democracy index. All countries that used extralegal methods for handling the pandemic have weak democratic norms. This is also true when looking specifically at regime type. Only one democracy—Sri Lanka—declared an emergency extralegally.
@@ -320,7 +300,7 @@ pandem_derog %>%
   rename("Type of response" = type_clean) %>% 
   kbl(caption = "Typology of possible pandemic responses across derogations and emergency responses",
       booktabs = TRUE, linesep = "") %>% 
-  kable_styling(font_size = 9)
+  kable_styling()
 ```
 
 ```{r tbl-derog-a-b}
@@ -333,7 +313,7 @@ tbl_derog %>%
          `Derogation end` = derogation_end) %>% 
   kbl(caption = "Countries that either derogated as intended or derogated with excessive human rights violations",
       booktabs = TRUE, linesep = "") %>% 
-  kable_styling(font_size = 9) %>% 
+  kable_styling() %>% 
   pack_rows(index = table(fct_inorder(fct_drop(tbl_derog$type_clean_letter))))
 ```
 
@@ -421,7 +401,7 @@ tribble(
   kbl(align = c("l", "l", "c", "c", "c", "l"),
       caption = "Summary of case studies",
       booktabs = TRUE, linesep = "\\addlinespace") %>% 
-  kable_styling(font_size = 8) %>% 
+  kable_styling() %>% 
   column_spec(1, width = "0.1\\\\textwidth") %>% 
   column_spec(2, width = "0.12\\\\textwidth") %>% 
   column_spec(3, width = "0.09\\\\textwidth") %>% 
@@ -495,6 +475,7 @@ Overall, India cannot declare a state of emergency due to the fact that its cons
 
 It is too early to tell if derogations, emergency measures, and pandemic-era human rights violations will causally lead to reduced civic space—that data has yet to be collected, and sufficient time still has not passed. At the time of this writing, the majority of the world remains in the throes of combatting the pandemic and only a handful are successfully rolling out vaccines at a large scale. However, preliminary data shows that civil society space and pandemic measures are closely linked, and case study evidence shows that many countries have—and will likely continue to—used emergency powers to directly limit civic space and curtail associational freedoms specifically. Broader indexes like V-Dem's PanDem and more specific counts of treaty derogations can provide useful avenues for identifying pandemic-excused backsliding and rights violations and will be invaluable for future research.
 
+\newpage
 
 # Appendix: Countries that did not derogate
 
@@ -515,7 +496,10 @@ matrix_combined <- rbind(cbind(levels(pandem_derog$type_clean_letter)[3], matrix
                          cbind(levels(pandem_derog$type_clean_letter)[4], matrix_d)) 
 
 matrix_combined[,-1] %>% 
-  kbl(booktabs = TRUE, linesep = "") %>% 
-  kable_styling(font_size = 9) %>% 
+  kbl(caption = "Countries did not derogate during the pandemic",
+      booktabs = TRUE, linesep = "") %>% 
+  kable_styling(latex_options = c("hold_position")) %>% 
   pack_rows(index = table(matrix_combined[,1]), indent = FALSE)
 ```
+
+\newpage
