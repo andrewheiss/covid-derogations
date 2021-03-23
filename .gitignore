@@ -17,11 +17,12 @@ data/derived_data/
 **/*_cache/*
 
 # Manuscript output
-manuscript/*.docx
-manuscript/*.html
-manuscript/*.pdf
-manuscript/*.tex
-manuscript/tex_out/*
+manuscript/*.log
+manuscript/output/*.docx
+manuscript/output/*.html
+manuscript/output/*.pdf
+manuscript/output/*.tex
+manuscript/output/figures/*
 manuscript/pandoc/bin/vc*
 
 # Output

@@ -9,6 +9,8 @@
 #		- python3
 #		- LibreOffice
 #		- pandoc
+#		- pandoc-include (pip install pandoc-include)
+#		- pandoc-crossref (brew install pandoc-crossref on macOS)
 #		- bibtools (brew install bib-tools on macOS)
 #		- gawk (brew install gawk on macOS)
 #		- Fonts (as needed) in pandoc/fonts/
@@ -44,6 +46,13 @@
 # Main document (either .md or .Rmd)
 SRC = manuscript.Rmd
 
+# Output directory (use . if using the current directory)
+# Do NOT:
+# - include a trailng slash
+# - include an initial slash (unless you're really using systemwide absolute paths)
+# - set this to /
+OUT_DIR = output
+
 # Bibliography file
 BIB_FILE = bibliography.bib
 
@@ -56,10 +65,6 @@ ANONYMIZED = FALSE
 
 # Add version control information in footer (only happens in tex target)
 VC_ENABLE = FALSE
-
-# Output folder for LaTeX PDFs (uses a separate folder so all the intermediate
-# TeX stuff doesn't clutter up your main directory)
-TEX_DIR = tex_out
 
 # CSL stylesheet
 # Download CSL files from https://github.com/citation-style-language/styles
@@ -120,21 +125,18 @@ MD_EXT = $(suffix $(SRC))
 BASE = $(basename $(SRC))
 
 # Targets
-MD=$(SRC:$(MD_EXT)=.md)
-HTML=$(SRC:$(MD_EXT)=.html)
-PDF=$(SRC:$(MD_EXT)=.pdf)
-DOCX=$(SRC:$(MD_EXT)=.docx)
-BIB=$(SRC:$(MD_EXT)=.bib)
+HTML=$(OUT_DIR)/$(SRC:$(MD_EXT)=.html)
+PDF=$(OUT_DIR)/$(SRC:$(MD_EXT)=.pdf)
+MSPDF=$(OUT_DIR)/$(SRC:$(MD_EXT)=-ms.pdf)
+DOCX=$(OUT_DIR)/$(SRC:$(MD_EXT)=.docx)
+BIB=$(OUT_DIR)/$(SRC:$(MD_EXT)=.bib)
 
 .PHONY: clean count
 
 ## all	:	Convert manuscript to Markdown, HTML, .odt, .docx, manuscripty .odt,
 ## 		manuscripty .docx, and PDF *and* extract all citations into a standalone
 ## 		.bib file
-all:	clean $(MD) $(HTML) $(DOCX) $(PDF) $(BIB) count
-
-## md	:	Convert manuscript to Markdown
-md: 	$(MD)
+all:	clean $(HTML) $(PDF) $(DOCX) $(BIB) count
 
 ## html	:	Convert manuscript to HTML
 html:	$(HTML)
@@ -142,8 +144,8 @@ html:	$(HTML)
 ## pdf	:	Convert manuscript to PDF (through XeLaTeX)
 pdf:	$(PDF)
 
-## mstex	:	Convert manuscript to manuscripty PDF (through XeLaTeX)
-mstex:	$(MS_TEX)
+## mspdf	:	Convert manuscript to manuscripty PDF (through XeLaTeX)
+mspdf:	$(MSPDF)
 
 ## docx	:	Convert manuscript to .docx
 docx:	$(DOCX)
@@ -152,69 +154,58 @@ docx:	$(DOCX)
 bib:	$(BIB)
 
 
-TEX_REF = bibstyle-chicago-authordate
-
-MS_TEX=$(SRC:$(MD_EXT)=-manuscript.tex)
-
-## mstex	:	Convert manuscript to manuscripty PDF (through XeLaTeX)
-mstex:	clean $(MS_TEX)
-
-
 # --------------------
 # Build instructions
 # --------------------
-%.md:	%.Rmd
-	R --slave -e "set.seed(1234);knitr::knit('$<')"
+# order-only-prerequisite to make the output folder if it doesn't exist
+# https://stackoverflow.com/a/38525905/120898
+$(OUT_DIR):
+	mkdir -p $@
 
-%.html:	%.Rmd
+$(OUT_DIR)/%.html:	%.Rmd | $(OUT_DIR)
 	@echo "$(WARN_COLOR)Converting R Markdown to HTML...$(NO_COLOR)"
 	Rscript ${PREFIX}/bin/render_html.R -input $< -output $@ -csl $(PREFIX)/csl/$(CSL).csl
 	@echo "$(OK_COLOR)All done!$(NO_COLOR)"
+	@echo
 
-%.pdf:	%.Rmd
+$(OUT_DIR)/%.pdf:	%.Rmd | $(OUT_DIR)
 	$(VC_COMMAND)
 	@echo "$(WARN_COLOR)Converting R Markdown to PDF through XeLaTeX using hikma-article template...$(NO_COLOR)"
 	Rscript ${PREFIX}/bin/render_pdf.R -input $< -output $@ -bibstyle $(TEX_BIBSTYLE)
 	@echo "$(OK_COLOR)All done!$(NO_COLOR)"
+	@echo
 
-# pandoc --print-default-data-file reference.docx > custom-reference.docx
-%.docx: %.Rmd
+$(OUT_DIR)/%-ms.pdf:	%.Rmd | $(OUT_DIR)
+	$(VC_COMMAND)
+	@echo "$(WARN_COLOR)Converting R Markdown to PDF through XeLaTeX using manuscripty template...$(NO_COLOR)"
+	Rscript ${PREFIX}/bin/render_pdf-ms.R -input $< -output $@ -bibstyle $(TEX_BIBSTYLE)
+	@echo "$(OK_COLOR)All done!$(NO_COLOR)"
+	@echo
+
+$(OUT_DIR)/%.docx: %.Rmd | $(OUT_DIR)
 	@echo "$(WARN_COLOR)Converting R Markdown to .docx...$(NO_COLOR)"
 	Rscript ${PREFIX}/bin/render_docx.R -input $< -output $@ -csl $(PREFIX)/csl/$(CSL).csl
 	@echo "$(OK_COLOR)All done!$(NO_COLOR)"
+	@echo
 
-%.bib: %.Rmd
+$(OUT_DIR)/%.bib: %.Rmd | $(OUT_DIR)
 	@echo "$(WARN_COLOR)Extracing all citations into a standalone .bib file...$(NO_COLOR)"
 	python ${PREFIX}/bin/bib_extract.py --bibtex_file $(BIB_FILE) --bibtools_resource ${PREFIX}/bin/bibtool.rsc $< $@
-
-%-manuscript.tex:	%.md
-	@echo "$(WARN_COLOR)Converting Markdown to TeX using generic manuscript template...$(NO_COLOR)"
-	cat $< $(ANONYMIZE) | \
-	pandoc -r $(OPTIONS)+raw_tex -w latex -s \
-		--filter pandoc-include \
-		--default-image-extension=pdf \
-		--pdf-engine=xelatex \
-		--template=$(PREFIX)/templates/xelatex-manuscript.tex \
-		--biblatex \
-		-V $(TEX_REF) \
-		--bibliography=$(BIB_FILE) \
-		--shift-heading-level-by=0 \
-		-o $@
-	@echo "$(WARN_COLOR)...converting TeX to PDF with latexmk (prepare for lots of output)...$(NO_COLOR)"
-	latexmk -outdir=$(TEX_DIR) -xelatex -quiet $@
-	@echo "$(OK_COLOR)All done!$(NO_COLOR)"
+	@echo
 
 ## count	:	Get Word-like word count
 count: html
 	@echo "$(WARN_COLOR)Count manuscript words like Word...$(NO_COLOR)"
-	Rscript ${PREFIX}/bin/word_count.R $(BASE).html
+	Rscript ${PREFIX}/bin/word_count.R $(OUT_DIR)/$(BASE).html
+	@echo
 
 ## clean	:	Delete all manuscript-related targets
 clean:
 	@echo "$(WARN_COLOR)Deleting all existing targets...$(NO_COLOR)"
-	rm -f $(addsuffix .html, $(BASE)) \
-		$(addsuffix .pdf, $(BASE)) $(addsuffix .docx, $(BASE)) \
-		$(addsuffix .bib, $(BASE))
+	rm -rf  $(OUT_DIR)/$(addsuffix .html, $(BASE)) $(OUT_DIR)/$(addsuffix _files, $(BASE)) \
+	$(OUT_DIR)/$(addsuffix .pdf, $(BASE)) $(OUT_DIR)/$(addsuffix -ms.pdf, $(BASE)) \
+	$(OUT_DIR)/$(addsuffix .docx, $(BASE)) $(OUT_DIR)/$(addsuffix .bib, $(BASE))
+	@echo
 
 # Self-documenting Makefiles from The Carpentries
 # https://swcarpentry.github.io/make-novice/08-self-doc/index.html
