@@ -12,7 +12,7 @@ author:
   url: https://www.andrewheiss.com/
 date: March 21, 2021
 published: This is an early draft of a working paper.
-git-repo: https://github.com/andrewheiss/covid-derogations
+code-repo: Access the code and data at <https://github.com/andrewheiss/covid-derogations>.
 abstract: >-
   In an effort to combat the COVID-19 pandemic, most governments have imposed restrictions on civic freedoms in the interest of public health. In many cases, these emergency measures have been temporary and proportional in terms of controling the pandemic. In many other instances, however, governments have used these restrictions to suppress opposition and more permanently restrict civic space. Systematically measuring the consequences of COVID restrictions, however, is a difficult task. We examine two possible quantitative measures of the relationship between of COVID restrictions and civil society space. First, we use the Variety of Democracy project's newly released Pandemic Violations of Democratic Standards Index to explore if and how civil society restrictions predict pandemic backsliding. Second, while many countries sign international human rights treaties that ostensibly bind states to respect rights, several treaties allow for emergency derogations from these obligations. We tabulate formal human rights treaty derogations due to the pandemic and explore whether these emergency measures led to lasting declines in associational and human rights. We hope that our exploration of these two measures will provide rich data-based descriptions of the relationship between COVID restrictions and civic space that will allow for more causal work in the future.
 keywords: "international human rights treaties, civil society, COVID-19, democracy"
@@ -20,6 +20,10 @@ reference-section-title: References
 bibliography: bibliography.bib
 csl: pandoc/csl/chicago-author-date.csl
 title-page: true
+endnotes: false
+endfloat: false
+mainfont: Spectral
+sansfont: Noto Sans
 editor_options: 
   chunk_output_type: console
 ---
@@ -32,6 +36,7 @@ is_html <- knitr::pandoc_to("html")
 
 # Word-specific things
 table_format <- ifelse(is_docx, "huxtable", "kableExtra")  # Huxtable tables
+if (is_docx) { library(huxtable) }
 conditional_dpi <- ifelse(is_docx, 300, 300)  # Higher DPI
 conditional_align <- ifelse(is_docx, "default", "center")  # Word doesn't support align
 
@@ -59,7 +64,7 @@ options(
   modelsummary_default = table_format  # Set modelsummary backend
 )
 
-
+# Load libraries
 library(tidyverse)
 library(knitr)
 library(kableExtra)
@@ -75,6 +80,7 @@ source(here("lib", "graphics.R"))
 # Generated via random.org
 set.seed(9951)
 
+# Load data
 pandem_clean <- readRDS(here("data", "derived_data", "pandem_clean.rds"))
 pandem_single <- readRDS(here("data", "derived_data", "pandem_single.rds"))
 derogations_clean <- readRDS(here("data", "derived_data", "derogations_clean.rds"))
@@ -184,14 +190,27 @@ em_response$countries <- pandem_single %>%
 A majority of countries made some sort of official public health response to the pandemic, and most used legal avenues for their responses (see Table \@ref(tab:tbl-emergency-responses)): `r em_response$emergency_response_with_legal_instruments$prop` of countries used legal instruments to declare public emergencies at some point during 2020, while `r em_response$emergency_response_without_legal_instruments$prop` used extralegal avenues. Only a handful had no official national emergency response throughout 2020: `r em_response$countries`.
 
 ```{r tbl-emergency-responses}
-pandem_single %>% 
+tbl_pandem_responses <- pandem_single %>% 
   count(emlaw_fct_min, name = "N") %>% 
   mutate(`%` = N / sum(N)) %>% 
   mutate(`%` = percent_format(accuracy = 0.1)(`%`)) %>% 
-  rename("Emergency response" = emlaw_fct_min) %>% 
-  kbl(caption = "National emergency responses to the COVID-19 pandemic", 
-      booktabs = TRUE, linesep = "") %>% 
-  kable_styling()
+  rename("Emergency response" = emlaw_fct_min)
+
+if (!is_docx) {
+  tbl_pandem_responses %>% 
+    kbl(caption = "National emergency responses to the COVID-19 pandemic", 
+        booktabs = TRUE, linesep = "") %>% 
+    kable_styling()
+} else {
+  tbl_pandem_responses %>% 
+    hux() %>% 
+    set_font_size(10) %>%
+    set_all_padding(3) %>% 
+    set_bold(1, everywhere) %>%
+    set_bottom_border(1, everywhere) %>% 
+    huxtable::set_caption("National emergency responses to the COVID-19 pandemic") %>% 
+    huxtable::as_flextable()
+}
 ```
 
 There are distinct patterns that help predict which kind of response a country made (see Figure \@ref(fig:democracy-regime-declaration)). There is a uniform distribution of adherence to democratic values within countries that used legal methods for declaring emergencies. For instance, both Denmark and Tajikistan used legal instruments to declare their respective emergencies. However, among countries that declared emergencies without any legal instruments, there are no countries that score above 0.5 on V-Dem's liberal democracy index. All countries that used extralegal methods for handling the pandemic have weak democratic norms. This is also true when looking specifically at regime type. Only one democracy—Sri Lanka—declared an emergency extralegally.
@@ -322,12 +341,25 @@ Of the `r sum(derog_count$n)` countries that have ratified the ICCPR, `r filter(
 [^typology-note]: PanDem only includes data for `r nrow(pandem_single)` countries, so the total here does not equal the ICCPR's `r sum(derog_count$n)` ratifying states.
 
 ```{r tbl-derog-typology}
-pandem_derog %>% 
+tbl_derog_typology <- pandem_derog %>% 
   count(type_clean, name = "N") %>%
-  rename("Type of response" = type_clean) %>% 
-  kbl(caption = "Typology of possible pandemic responses across derogations and emergency responses",
-      booktabs = TRUE, linesep = "") %>% 
-  kable_styling()
+  rename("Type of response" = type_clean)
+
+if (!is_docx) {
+  tbl_derog_typology %>% 
+    kbl(caption = "Typology of possible pandemic responses across derogations and emergency responses",
+        booktabs = TRUE, linesep = "") %>% 
+    kable_styling()
+} else {
+  tbl_derog_typology %>% 
+    hux() %>% 
+    set_font_size(10) %>%
+    set_all_padding(3) %>% 
+    set_bold(1, everywhere) %>%
+    set_bottom_border(1, everywhere) %>% 
+    huxtable::set_caption("Typology of possible pandemic responses across derogations and emergency responses") %>% 
+    huxtable::as_flextable()
+}
 ```
 
 ```{r tbl-derog-a-b}
@@ -335,13 +367,36 @@ tbl_derog <- pandem_derog %>%
   filter(type %in% c("A", "B")) %>% 
   arrange(type, country_name)
 
-tbl_derog %>% 
+tbl_derog_a_b <- tbl_derog %>% 
   select(Country = country_name, `Derogation start` = derogation_start, 
-         `Derogation end` = derogation_end) %>% 
-  kbl(caption = "Countries that either derogated as intended or derogated with excessive human rights violations",
-      booktabs = TRUE, linesep = "") %>% 
-  kable_styling() %>% 
-  pack_rows(index = table(fct_inorder(fct_drop(tbl_derog$type_clean_letter))))
+         `Derogation end` = derogation_end) 
+
+tbl_a_b_breaks <- table(fct_inorder(fct_drop(tbl_derog$type_clean_letter)))
+tbl_a_b_caption <- "Countries that either derogated as intended or derogated with excessive human rights violations"
+
+if (!is_docx) {
+  tbl_derog_a_b %>% 
+    kbl(caption = tbl_a_b_caption,
+        booktabs = TRUE, linesep = "") %>% 
+    kable_styling() %>% 
+    pack_rows(index = tbl_a_b_breaks)
+} else {
+  tbl_derog_a_b %>% 
+    hux() %>% 
+    set_font_size(10) %>%
+    set_all_padding(3) %>% 
+    insert_row(names(tbl_a_b_breaks[1]), "", "", after = 1) %>%
+    insert_row(names(tbl_a_b_breaks[2]), "", "", 
+               after = (tbl_a_b_breaks[1] + 2)) %>%
+    set_bold(1, everywhere) %>%
+    set_bold(2, everywhere) %>%
+    set_bold((tbl_a_b_breaks[1] + 3), everywhere) %>% 
+    set_bottom_border(1, everywhere) %>%
+    set_bottom_border(2, everywhere) %>%
+    set_bottom_border((tbl_a_b_breaks[1] + 3), everywhere) %>%
+    huxtable::set_caption(tbl_a_b_caption) %>% 
+    huxtable::as_flextable()
+}
 ```
 
 The severity of pandemic violations and democratic violations varies across these broader derogation responses (see Figure \@ref(fig:derogation-pandem)). Countries that derogated as intended have the lowest average level of pandemic violations and are the least likely to face pandemic-driven democratic backsliding. This is likely because the countries that are operating as the ICCPR intends—states facing emergency measures formally derogate some rights for a limited, time-bound period—are more likely to respect human rights and democratic norms in general. The average level of pandemic violations increases outside of these rule-followers, and countries that derogate disproportionately, declare formal emergencies without derogation, or declare extralegal emergencies without derogation have higher average levels of violations and backsliding. It thus appears that adhering to the derogation process is a strong indicator of national respect for human rights.
@@ -413,7 +468,7 @@ pandem_derog %>%
 As shown above, numerous countries derogated from their ICCPR obligations during the COVID-19 pandemic. However, many of these countries implemented measures that exceeded the recommended legal, necessary, temporary, and proportional standards. The violation of human rights—whether or not a country formally or appropriately derogated—poses important consequences for civic space. To complement our exploratory descriptive quantitative work and highlight the range in national responses, we illustrate the four types of derogation and emergency responses with preliminary case studies of Guatemala, Armenia, Egypt, and India, summarized in Table \@ref(tab:tbl-case-summary).
 
 ```{r tbl-case-summary}
-tribble(
+tbl_case_summary <- tribble(
   ~Type, ~country_name, ~Summary,
   "A: Derogated as intended", "Guatemala", "Requested derogations early; derogations have been lawful and generally proportionate",
   "B: Derogated; measures not temporary, proportional, or necessary", "Armenia", "Engaged in serial derogation; has committed some extraordinary human rights abuses",
@@ -424,21 +479,40 @@ tribble(
             by = "country_name") %>% 
   mutate(across(c(pandem, panback, v2xcs_ccsi), ~round(., 2))) %>% 
   select(Country = country_name, Type, `Pandemic violations index` = pandem, 
-         `Pandemic backsliding index` = panback, `Civil society index` = v2xcs_ccsi, Summary) %>% 
-  kbl(align = c("l", "l", "c", "c", "c", "l"),
-      caption = "Summary of case studies",
-      booktabs = TRUE, linesep = "\\addlinespace") %>% 
-  kable_styling() %>% 
-  column_spec(1, width = "0.1\\\\textwidth") %>% 
-  column_spec(2, width = "0.12\\\\textwidth") %>% 
-  column_spec(3, width = "0.09\\\\textwidth") %>% 
-  column_spec(4, width = "0.11\\\\textwidth") %>% 
-  column_spec(5, width = "0.09\\\\textwidth") %>% 
-  column_spec(6, width = "0.35\\\\textwidth") %>% 
-  footnote(general = 
-             c("Pandemic violations index ranges from 0 to 0.65; higher values represent worse violations", 
-               "Pandemic backsliding index ranges from 0 to 0.5; higher values represent greater democratic backsliding",
-               "Civil society index ranges from 0 to 1; higher values represent more open civil society"))
+         `Pandemic backsliding index` = panback, `Civil society index` = v2xcs_ccsi, Summary) 
+
+tbl_case_summary_caption <- "Summary of case studies"
+
+tbl_case_notes <- c("Pandemic violations index ranges from 0 to 0.65; higher values represent worse violations", 
+                    "Pandemic backsliding index ranges from 0 to 0.5; higher values represent greater democratic backsliding",
+                    "Civil society index ranges from 0 to 1; higher values represent more open civil society")
+
+if (!is_docx) {
+  tbl_case_summary %>% 
+    kbl(align = c("l", "l", "c", "c", "c", "l"),
+        caption = tbl_case_summary_caption,
+        booktabs = TRUE, linesep = "\\addlinespace") %>% 
+    kable_styling() %>% 
+    column_spec(1, width = "0.1\\\\textwidth") %>% 
+    column_spec(2, width = "0.12\\\\textwidth") %>% 
+    column_spec(3, width = "0.09\\\\textwidth") %>% 
+    column_spec(4, width = "0.11\\\\textwidth") %>% 
+    column_spec(5, width = "0.09\\\\textwidth") %>% 
+    column_spec(6, width = "0.35\\\\textwidth") %>% 
+    footnote(general = tbl_case_notes)
+} else {
+  tbl_case_summary %>% 
+    hux() %>% 
+    set_font_size(10) %>%
+    set_all_padding(3) %>% 
+    set_align(everywhere, 3:5, "center") %>% 
+    set_align(everywhere, c(1, 2, 6), "left") %>% 
+    set_bold(1, everywhere) %>%
+    set_bottom_border(1, everywhere) %>%
+    huxtable::add_footnote(paste(tbl_case_notes, collapse = " • ")) %>% 
+    huxtable::set_caption(tbl_case_summary_caption) %>% 
+    huxtable::as_flextable()
+}
 ```
 
 ## A: Derogated as intended
@@ -504,7 +578,7 @@ It is too early to tell if derogations, emergency measures, and pandemic-era hum
 
 \newpage
 
-# Appendix: Countries that did not derogate
+# Appendix
 
 ```{r tbl-derog-c-d}
 matrix_c <- pandem_derog %>% 
@@ -522,11 +596,33 @@ matrix_d <- pandem_derog %>%
 matrix_combined <- rbind(cbind(levels(pandem_derog$type_clean_letter)[3], matrix_c),
                          cbind(levels(pandem_derog$type_clean_letter)[4], matrix_d)) 
 
-matrix_combined[,-1] %>% 
-  kbl(caption = "Countries did not derogate during the pandemic",
-      booktabs = TRUE, linesep = "") %>% 
-  kable_styling(latex_options = c("hold_position")) %>% 
-  pack_rows(index = table(matrix_combined[,1]), indent = FALSE)
+tbl_derog_c_d <- matrix_combined[,-1]
+tbl_c_d_breaks <- table(matrix_combined[,1])
+tbl_c_d_caption <- "Countries that did not derogate during the pandemic"
+
+if (!is_docx) {
+  tbl_derog_c_d %>% 
+    kbl(caption = tbl_c_d_caption,
+        booktabs = TRUE, linesep = "") %>% 
+    kable_styling(latex_options = c("hold_position")) %>% 
+    pack_rows(index = tbl_c_d_breaks, indent = FALSE)
+} else {
+  tbl_derog_c_d %>% 
+    hux() %>% 
+    set_font_size(10) %>%
+    set_all_padding(3) %>% 
+    insert_row(names(tbl_c_d_breaks[1]), "", "", "", after = 1) %>%
+    insert_row(names(tbl_c_d_breaks[2]), "", "", "",
+               after = (tbl_c_d_breaks[1] + 2)) %>%
+    set_bold(1, everywhere) %>%
+    set_bold(2, everywhere) %>%
+    set_bold((tbl_c_d_breaks[1] + 3), everywhere) %>% 
+    set_bottom_border(1, everywhere) %>%
+    set_bottom_border(2, everywhere) %>%
+    set_bottom_border((tbl_c_d_breaks[1] + 3), everywhere) %>%
+    huxtable::set_caption(tbl_c_d_caption) %>% 
+    huxtable::as_flextable()
+}
 ```
 
 \newpage
