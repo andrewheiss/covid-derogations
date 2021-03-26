@@ -12,6 +12,9 @@ data/derived_data/
 **/_site/*
 **/site_libs/*
 
+# Targets stuff
+_targets
+
 # knitr and caching stuff
 **/*_files/*
 **/*_cache/*

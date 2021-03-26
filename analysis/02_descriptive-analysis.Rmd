@@ -32,12 +32,11 @@ options(dplyr.summarise.inform = FALSE,
 
 ```{r load-libraries-data, message=FALSE, warning=FALSE}
 library(tidyverse)
+library(targets)
 library(scales)
 library(ggbeeswarm)
 library(patchwork)
 library(here)
-
-source(here("lib", "graphics.R"))
 
 # Generated via random.org
 set.seed(9951)
@@ -47,11 +46,18 @@ matrix_from_vector <- function(x, ncol) {
   matrix(c(x, rep(NA, n_balanced - length(x))), ncol = ncol)
 }
 
-pandem_clean <- readRDS(here("data", "derived_data", "pandem_clean.rds"))
-pandem_single <- readRDS(here("data", "derived_data", "pandem_single.rds"))
-derogations_clean <- readRDS(here("data", "derived_data", "derogations_clean.rds"))
-vdem_clean <- readRDS(here("data", "derived_data", "vdem_clean.rds"))
-pandem_derog <- readRDS(here("data", "derived_data", "pandem_derog.rds"))
+# Load data
+# Need to use this withr thing because tar_read() and tar_load() need to see the
+# _targets folder in the current directory, but this .Rmd file is in a subfolder
+withr::with_dir(here::here(), {
+  source(tar_read(plot_funs))
+  
+  tar_load(pandem_clean)
+  tar_load(pandem_single)
+  tar_load(derogations_clean)
+  tar_load(vdem_clean)
+  tar_load(pandem_derog)
+})
 ```
 
 # V-Dem pandemic emergency declarations

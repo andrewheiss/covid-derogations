@@ -4,6 +4,9 @@
 % Disable all warnings issued by biblatex starting with "Since you are using the 'memoir' class..."
 \usepackage{silence}
 \WarningFilter{biblatex}{Since you are using the}
+% Not all fonts have fancy OpenType features like proportional and oldstyle
+% figures, so this suppresses fontspec's warnings when using those kinds of fonts
+\PassOptionsToPackage{quiet}{fontspec}
 
 
 % ---------------
@@ -121,8 +124,6 @@ $endif$
 
     % Footnotes
     \setfootins{3em}{3em}
-
-
 }
 
 % Numbered article style
@@ -195,9 +196,12 @@ $endif$
 % \urlstyle{} you use, so the actual \urlstyle{same} appears down below in
 % the REFERENCES section
 
+% Use "1. Note" in the footnotes
+\footmarkstyle{#1.\,}
+
 % Tweak \thanks{} stuff
 \thanksheadextra{\small}{}  % Marker in title section
-\thanksmarkstyle{\footnotesize #1}  % Actual note down in footnotes
+\thanksmarkstyle{\footnotesize #1\,}  % Actual note down in footnotes
 
 % Wrap definition list terms
 % https://tex.stackexchange.com/a/9763/11851
