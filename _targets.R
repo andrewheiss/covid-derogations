@@ -8,7 +8,10 @@ options(tidyverse.quiet = TRUE)
 
 future::plan(future::multisession)
 
-tar_option_set(packages = c("tidyverse", "countrycode", "jsonlite", "here", "scales", "sf"))
+tar_option_set(packages = c("tidyverse", "countrycode", "jsonlite", "here",
+                            "scales", "sf", "patchwork", "ggbeeswarm",
+                            "janitor", "kableExtra", "huxtable", "modelsummary",
+                            "knitr", "withr"))
 
 # General variables
 csl <- "pandoc/csl/chicago-author-date.csl"
