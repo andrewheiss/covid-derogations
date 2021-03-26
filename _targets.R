@@ -11,7 +11,7 @@ future::plan(future::multisession)
 tar_option_set(packages = c("tidyverse", "countrycode", "jsonlite", "here", "scales", "sf"))
 
 # General variables
-csl <- "pandoc/csl/apa.csl"
+csl <- "pandoc/csl/chicago-author-date.csl"
 bibstyle <- "bibstyle-chicago-authordate"
 
 list(
