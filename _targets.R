@@ -33,8 +33,10 @@ list(
              here("data", "raw_data", "ne_110m_admin_0_countries",
                   "ne_110m_admin_0_countries.shp"),
              format = "file"),
+
   # Define helper functions
   tar_target(plot_funs, here("lib", "graphics.R"), format = "file"),
+
   # Load and clean data
   tar_target(lookups, create_lookups()),
   tar_target(pandem_clean, load_clean_pandem(pandem_raw_file, lookups)),
