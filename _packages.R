@@ -2,6 +2,7 @@
 library(bs4Dash)
 library(clustermq)
 library(countrycode)
+library(flextable)
 library(future)
 library(ggbeeswarm)
 library(gt)
