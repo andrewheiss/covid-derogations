@@ -1,8 +1,13 @@
 library(targets)
 library(tarchetypes)
 
+# General variables
+csl <- "pandoc/csl/apa.csl"
+bibstyle <- "bibstyle-chicago-authordate"
+
 source("R/funs_data-cleaning.R")
 source("R/funs_knitting.R")
+source("R/funs_notebook.R")
 
 options(tidyverse.quiet = TRUE)
 
@@ -11,11 +16,7 @@ future::plan(future::multisession)
 tar_option_set(packages = c("tidyverse", "countrycode", "jsonlite", "here",
                             "scales", "sf", "patchwork", "ggbeeswarm",
                             "janitor", "kableExtra", "huxtable", "modelsummary",
-                            "knitr", "withr"))
-
-# General variables
-csl <- "pandoc/csl/chicago-author-date.csl"
-bibstyle <- "bibstyle-chicago-authordate"
+                            "knitr", "withr", "flextable"))
 
 list(
   # Define raw data files
@@ -50,6 +51,9 @@ list(
   tar_target(pandem_derog, create_pandem_derog(derogations_clean, pandem_single, vdem_clean, lookups)),
   tar_target(world_map, load_world_map(naturalearth_raw_file)),
   tar_target(civicus_map_data, create_civicus_map_data(civicus_clean, world_map)),
+
+  # Render the analysis notebook
+  tar_notebook_pages(),
 
   # tarchetypes::tar_render() automatically detects target dependencies in Rmd
   # files and knits them, but there's no easy way to pass a custom rendering
